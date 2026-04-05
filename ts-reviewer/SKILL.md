@@ -300,7 +300,7 @@ After boost:
 
 ### Output file
 
-Write results to `.claude/code-smells.md` (create `.claude/` directory if needed).
+Write results to `code-smells-YYYY-MM-DD.md` in the project root (use the current date as the suffix, e.g. `code-smells-2026-04-05.md`).
 
 Use this exact structure:
 
