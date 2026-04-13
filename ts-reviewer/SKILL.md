@@ -35,8 +35,8 @@ This skill operates in three modes. Detect the mode from the user's request:
 
 ## Report File Location
 
-- If the project has a `.claude/` directory, write to `.claude/code-smells.md`
-- Otherwise, write to `code-smells.md` in the project root
+- Always write to `code-smells.md` in the project root (not in `.claude/`)
+  This ensures the skill works in non-Claude environments and the file is visible regardless of tooling.
 - Recommend the user adds `code-smells.md` to `.gitignore` — it's a review artifact
 
 ---

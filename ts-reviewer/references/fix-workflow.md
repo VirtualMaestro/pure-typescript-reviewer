@@ -5,7 +5,7 @@ Read this before executing any fix or auto mode operation.
 
 ## Prerequisites
 
-- `code-smells.md` must exist (in `.claude/` or project root).
+- `code-smells.md` must exist in the project root.
   If missing, stop with error: "No scan report found. Run scan first."
 - The project must be in a git repository (for safe revert if needed).
 - Recommend the user commit or stash uncommitted work before fix runs,
