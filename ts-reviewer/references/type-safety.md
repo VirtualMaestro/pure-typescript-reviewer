@@ -1,5 +1,14 @@
 # Type Safety Checklist
 
+## Suppression Directives
+
+- `// @ts-ignore` without explanation. Severity: **Medium**.
+  Recommend `// @ts-expect-error` with a comment explaining why the error is expected.
+- `// @ts-expect-error` that no longer suppresses any error (stale). Severity: **Low**.
+  The directive should be removed — it was masking nothing.
+- `// @ts-ignore` or `// @ts-expect-error` used to hide a type safety issue that could
+  be fixed properly. Severity: **Medium**. Fix: address the root cause instead.
+
 ## `any` Abuse
 
 - Explicit `any` in function parameters, return types, or variable declarations.
@@ -9,7 +18,8 @@
 - `any[]` where a typed array or generic is possible. Severity: **Medium**.
 - `Record<string, any>` — usually should be `Record<string, unknown>` or a proper interface.
   Severity: **Medium**.
-- `Function` type — almost always wrong. Use a specific signature. Severity: **Medium**.
+- `Function` type — almost always wrong. Use a specific signature. Severity: **High**.
+  `Function` bypasses all type checking on arguments and return value.
 - `object` type (lowercase) — too broad, prefer a specific interface. Severity: **Low**.
 
 ## Unsafe Casts
@@ -62,15 +72,14 @@
 
 ## Index Signatures
 
-- `obj[key]` without checking if `key` exists in `obj` — especially dangerous
-  when `noUncheckedIndexedAccess` is disabled. Severity: **High** if the flag is off.
+- `obj[key]` without checking if `key` exists — especially dangerous
+  when `noUncheckedIndexedAccess` is disabled. Severity: **Medium** if the flag is off.
 - Using `in` operator or `hasOwnProperty` without narrowing. Severity: **Medium**.
 
 ## Return Types
 
 - Public/exported functions missing explicit return types. Severity: **Medium**.
-  (Internal functions can rely on inference — don't flag those unless the inferred
-  type is `any`.)
+  (Internal functions can rely on inference — don't flag those unless the inferred type is `any`.)
 - Functions that return different types in different branches without a union return type.
   Severity: **High** — the inferred type might be wider than intended.
 
@@ -88,5 +97,5 @@
 - Hand-rolled types that duplicate built-in utility types
   (`Partial`, `Required`, `Pick`, `Omit`, `Record`, `Readonly`, `ReturnType`,
   `Parameters`, `Awaited`, `NoInfer`). Severity: **Low**.
-- `Omit` with a key that doesn't exist in the source type (no error by default).
-  Severity: **Medium** — use a constrained Omit helper.
+- `Omit` with a key that doesn't exist in the source type — TS silently allows this,
+  which may indicate a typo or stale code. Severity: **Low**.
