@@ -1,6 +1,6 @@
 # Pure TypeScript Reviewer
 
-A Claude Code skill for deep code review and auto-fix of pure TypeScript codebases. Finds bugs, type safety holes, security vulnerabilities, async anti-patterns, outdated practices, and code smells — then fixes them with regression tests and verification.
+An AI skill for deep code review and auto-fix of pure TypeScript codebases. Finds bugs, type safety holes, security vulnerabilities, async anti-patterns, outdated practices, and code smells — then fixes them with regression tests and verification.
 
 Built for **TypeScript 5.9+** without any framework-specific checks (no React, Vue, Angular, etc.).
 
@@ -27,24 +27,37 @@ The review covers six domains, each with its own detailed checklist:
 
 ## Installation
 
-### Claude Code (recommended)
+### Install with npx
 
-Copy the `ts-reviewer/` folder into your project's skill directory:
-
-```bash
-# From the repo root
-cp -r ts-reviewer /path/to/your/project/.claude/skills/
-```
-
-Or install it globally so it's available in all your projects:
+From the root of the project where you want to install the skill:
 
 ```bash
-cp -r ts-reviewer ~/.claude/skills/
+npx ts-reviewer
 ```
 
-### Other Claude interfaces
+The installer prints a short summary before installation:
 
-The skill works in Claude.ai and other Claude interfaces too — sub-agents won't be available, so analysis runs sequentially instead of in parallel, but everything else works the same. Copy the skill folder and reference it in your prompt or project instructions.
+```text
+TypeScript Code Reviewer
+Checks: type safety, async patterns, security, tsconfig, modernization, code quality
+Target TypeScript: 5.9+
+```
+
+Then it asks which AI agents to install for. Use Up/Down arrows to move, Space to toggle, and Enter to confirm.
+
+Supported targets:
+
+| AI agent | Install path |
+|---|---|
+| Claude Code | `.claude/skills/ts-reviewer/` |
+| Codex | `.codex/skills/ts-reviewer/` |
+| Antigravity | `.agent/skills/ts-reviewer/` |
+
+In non-interactive terminals, the installer selects all supported targets.
+
+### Manual Install
+
+You can still copy the `ts-reviewer/` folder directly into the skill directory for your AI agent.
 
 ## Usage
 
@@ -126,6 +139,11 @@ Issues on unchanged lines are listed separately as pre-existing tech debt — in
 ## Project Structure
 
 ```
+src/                                  # npm/npx installer source
+├── cli.ts                            # CLI entrypoint and provider prompt
+├── prompt.ts                         # raw-mode keyboard multi-select
+└── paths.ts                          # target directories and skill asset loading
+
 ts-reviewer/
 ├── SKILL.md                          # Main skill file — mode routing, workflow orchestration
 └── references/
