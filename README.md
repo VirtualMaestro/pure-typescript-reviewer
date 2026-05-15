@@ -14,16 +14,17 @@ Three modes, one skill:
 | **fix** | Reads the report and applies fixes file-by-file with tsc/lint/test verification |
 | **auto** | Runs scan, asks you to confirm, fixes everything, deletes the report if clean |
 
-The review covers six domains, each with its own detailed checklist:
+The review covers six domains by default, each with its own detailed checklist. Add `--arch` or `--full` to include architecture analysis:
 
-| Domain | Examples |
-|---|---|
-| **Type Safety** | `any` abuse, unsafe casts, non-null assertions, missing exhaustive checks |
-| **Security** | Injection, prototype pollution, ReDoS, path traversal, hardcoded secrets |
-| **Async Patterns** | Floating promises, race conditions, missing error propagation, `forEach(async...)` |
-| **Modernization** | `enum` → `as const`, missing `satisfies`, `using` keyword, `import type` |
-| **Code Quality** | Dead code, complexity, duplication, hacky patterns, error handling |
-| **Config** | tsconfig.json strict flags, module resolution, deprecated options |
+| Domain | Examples | Default |
+|---|---|---|
+| **Type Safety** | `any` abuse, unsafe casts, non-null assertions, missing exhaustive checks | ✓ |
+| **Security** | Injection, prototype pollution, ReDoS, path traversal, hardcoded secrets | ✓ |
+| **Async Patterns** | Floating promises, race conditions, missing error propagation, `forEach(async...)` | ✓ |
+| **Modernization** | `enum` → `as const`, missing `satisfies`, `using` keyword, `import type` | ✓ |
+| **Code Quality** | Dead code, complexity, duplication, hacky patterns, error handling | ✓ |
+| **Config** | tsconfig.json strict flags, module resolution, deprecated options | ✓ |
+| **Architecture** | Shallow modules, scattered concepts, tight coupling, dependency seams, testability | `--arch` / `--full` |
 
 ## Installation
 
@@ -75,7 +76,29 @@ Find issues in this project
 Audit the codebase for security and type safety problems
 ```
 
-Claude will analyze the project and write a report to `code-smells.md` in the project root (or `.claude/code-smells.md` if that directory exists).
+Claude will analyze the project and write a report to `code-smells.md` in the project root.
+
+#### Domain flags
+
+By default, only the six core domains run. Use flags to control which domains are active:
+
+| Flag | What runs |
+|---|---|
+| *(none)* | Type Safety, Security, Async, Modernization, Code Quality, Config |
+| `--arch` | Architecture only (shallow modules, coupling, dependency seams) |
+| `--full` | All seven domains |
+
+Examples:
+
+```
+Review my TypeScript code --arch
+```
+```
+Full audit --full
+```
+```
+Review architecture of this project
+```
 
 ### Fix — apply fixes from the report
 
@@ -136,6 +159,14 @@ Issues on unchanged lines are listed separately as pre-existing tech debt — in
 | **Medium** | Tech debt — clean up when you're already editing that file |
 | **Low** | Style and conventions — improve when convenient |
 
+Architecture findings use the same scale. Each candidate also carries a **Fixability** tag:
+
+| Fixability | Meaning |
+|---|---|
+| `auto` | Applied automatically during fix mode |
+| `needs-confirm` | Shown to you first — only applied after explicit approval |
+| `report-only` | Left as documentation — never auto-applied |
+
 ## Project Structure
 
 ```
@@ -153,21 +184,22 @@ ts-reviewer/
     ├── modernization.md              # Checklist: TS 5.9+ idioms, satisfies, using, as const
     ├── code-quality.md               # Checklist: complexity, dead code, naming, duplication
     ├── tsconfig.md                   # Checklist: strict flags, module resolution, deprecated
+    ├── architecture.md               # Checklist: shallow modules, coupling, seams, deepening
     └── fix-workflow.md               # Complete fix protocol: tests, verification, rollback
 ```
 
-**SKILL.md** (349 lines) is the orchestrator — it routes between scan/fix/auto modes, defines scope detection, severity scale, and report format. It stays under the 500-line recommended limit for Claude skills.
+**SKILL.md** is the orchestrator — it routes between scan/fix/auto modes, detects domain flags (`--arch`, `--full`), defines scope detection, severity scale, and report format.
 
-**Reference files** contain the detailed checklists and protocols. Each analysis agent reads only the reference file relevant to its domain, keeping context focused. The fix workflow is in its own reference file because it's a complex multi-step protocol.
+**Reference files** contain the detailed checklists and protocols. Each analysis agent reads only the reference file relevant to its domain, keeping context focused. Architecture analysis is opt-in and loaded only when the domain is active.
 
 ## How It Works Under the Hood
 
 ### Scan mode
 
-1. **Discovery** — maps the project, reads tsconfig.json, detects linter and test runner
+1. **Discovery** — detects domain flags, maps the project, reads tsconfig.json, detects linter and test runner. If architecture is active, also maps module relationships and checks for `docs/adr/`.
 2. **Diagnostics** — runs `tsc --noEmit`, linter, and LSP diagnostics (if available)
-3. **Analysis** — six specialized passes (sub-agents in Claude Code, sequential in Claude.ai), each with its own checklist
-4. **Report** — deduplicates, applies severity boost (scoped modes), consolidates recurring patterns, writes `code-smells.md`
+3. **Analysis** — specialized passes for each active domain (sub-agents in Claude Code, sequential in Claude.ai), each with its own checklist
+4. **Report** — deduplicates, applies severity boost (scoped modes), consolidates recurring patterns, writes `code-smells.md`. Architecture findings appear in a separate `## Architecture Opportunities` section at the end.
 
 ### Fix mode
 

@@ -1,18 +1,12 @@
 ---
 name: ts-reviewer
 description: >
-  Deep TypeScript code review and auto-fix tool. Three modes: scan (find issues),
-  fix (apply fixes from scan report), auto (scan + fix + verify in one pass).
-  Supports scoped review: full codebase, uncommitted changes, branch diff (PR review),
-  or last N commits. Outputs a prioritized report and can auto-fix issues with
-  regression tests and verification.
-  Use this skill whenever the user asks to "review", "audit", "check", "lint", "find issues",
-  "find problems", "find bugs", "fix issues", "fix code smells", "auto-fix",
-  "review and fix", "clean up code", or "review code quality" in a TypeScript project.
-  Also trigger when the user mentions "tech debt", "code health", "refactor candidates",
-  "security audit", "modernize", "review my changes", "review my PR", "check what I changed",
-  "review last commit", or "review uncommitted" in a TypeScript context. Works with pure
-  TypeScript 5.9+ codebases — no framework-specific checks (React, Vue, Angular, etc.).
+  TypeScript code review and auto-fix. Modes: scan, fix, auto. Scopes: full codebase,
+  uncommitted, branch diff, last N commits. Trigger on: review, audit, check, lint,
+  find issues, find bugs, fix issues, fix code smells, auto-fix, review and fix,
+  clean up code, tech debt, code health, security audit, modernize, review my changes,
+  review my PR, review last commit. Architecture review: --arch, --full, review architecture,
+  find refactoring opportunities, full audit. Pure TypeScript 5.9+ only.
 ---
 
 # TypeScript Code Reviewer
@@ -32,6 +26,22 @@ This skill operates in three modes. Detect the mode from the user's request:
 **`scan`** — Analyze the codebase and write a report to `code-smells.md`.
 **`fix`** — Read `code-smells.md` and apply fixes with verification.
 **`auto`** — Run scan, then fix, then re-scan to verify. Delete report if clean.
+
+## Domain Set
+
+Controls which review domains are active. Detected from flags first, then natural-language phrases.
+
+| Flag / phrase | Active domains |
+|---|---|
+| (none / default) | Type Safety, Security, Async Patterns, Modernization, Code Quality, Config |
+| `--arch` / "review architecture" / "find refactoring opportunities" / "deepening review" | Architecture only |
+| `--full` / "full audit" / "full review" / "review everything" | All 7 domains (default 6 + Architecture) |
+
+Parse order: check for explicit `--arch` / `--full` / `--no-arch` flags in the user's message first.
+Fall back to phrase detection. If no flag or phrase matches → default domain set (no architecture).
+
+Architecture domain is **off** in default scans. It loads `references/architecture.md` and adds
+an `## Architecture Opportunities` section to `code-smells.md` only when active.
 
 ## Report File Location
 
@@ -145,21 +155,28 @@ git diff -U0 [appropriate range] -- '*.ts' | grep '^@@'
 
 ## Phase 1 — Discovery (scan mode)
 
-1. **Detect scope mode** from user's request. Build file list.
+1. **Detect domain set** from flags and phrases (see Domain Set section above).
+
+2. **Detect scope mode** from user's request. Build file list.
    If scoped mode yields 0 files, ask whether to fall back to full.
 
-2. **Map project tree** — full structure regardless of scope.
+3. **Map project tree** — full structure regardless of scope.
 
-3. **Read `tsconfig.json`**. Load `references/tsconfig.md` and audit config flags.
+4. **Read `tsconfig.json`**. Load `references/tsconfig.md` and audit config flags.
    In scoped modes: only flag config if `tsconfig.json` is in diff or if full review.
 
-4. **Check for linter configs** — `eslint.config.*`, `.eslintrc.*`, `biome.json`, `deno.json`.
+5. **Check for linter configs** — `eslint.config.*`, `.eslintrc.*`, `biome.json`, `deno.json`.
 
-5. **Read `package.json`** — TS version, dependencies, module type.
+6. **Read `package.json`** — TS version, dependencies, module type.
 
-6. **Identify entry points** — `index.ts`, `main.ts`, exports in `package.json`.
+7. **Identify entry points** — `index.ts`, `main.ts`, exports in `package.json`.
 
-7. **Collect context files** (scoped modes only).
+8. **Collect context files** (scoped modes only).
+
+9. **Architecture discovery** (only if Architecture is in active domain set):
+   - Map module relationships: note circular imports, deep relative imports, barrel-file cycles, feature slices, public entry points.
+   - Check if `docs/adr/` exists — if so, scan it for architectural decisions before proposing changes. Skip silently if absent.
+   - Do NOT require `CONTEXT.md` or any domain-doc files.
 
 Discovery summary:
 ```
@@ -203,6 +220,8 @@ Query TypeScript LSP via MCP if accessible. Merge with compiler output, deduplic
 
 Read the corresponding reference file before each analysis pass.
 
+Run only the agents whose domain is in the active domain set (see Domain Set section).
+
 | Agent | Reference file | Focus |
 |---|---|---|
 | Type Safety | `references/type-safety.md` | `any`, casts, `!`, exhaustiveness, generics |
@@ -211,6 +230,7 @@ Read the corresponding reference file before each analysis pass.
 | Modernization | `references/modernization.md` | Outdated patterns vs TS 5.9+ idioms |
 | Code Quality | `references/code-quality.md` | Complexity, duplication, naming, dead code |
 | Config | `references/tsconfig.md` | tsconfig.json flags and module setup |
+| Architecture | `references/architecture.md` | Shallow modules, scattered concepts, coupling, dependency seams, testability |
 
 ### Sub-agent template (Claude Code)
 
@@ -297,6 +317,23 @@ Write to `code-smells.md`:
 ## Recurring Patterns
 ## Config Issues
 ## Pre-existing Issues (scoped modes only)
+
+## Architecture Opportunities
+(only when Architecture is in active domain set AND at least one candidate found — omit entirely otherwise)
+
+### TITLE — Severity
+
+- **Files:** relative/path/a.ts, relative/path/b.ts
+- **Problem:** why this causes friction now
+- **Proposed deepening:** what would change
+- **Interface shape:** rough sketch of new interface
+- **Dependency category:** in-process | local-substitutable | remote-owned | true-external
+- **Test strategy:** how tests improve
+- **Benefits:** locality, leverage, test impact
+- **Trade-offs:** what gets harder
+- **Fixability:** auto | needs-confirm | report-only
+
+---
 ````
 
 ### Sorting
@@ -336,6 +373,9 @@ Key principles:
 | Low | Style — improve when convenient | Naming, missing readonly, verbose type |
 
 In scoped modes: these are base severities before diff-aware boost.
+
+Architecture findings use the same severity scale with domain-specific criteria.
+See `references/architecture.md` → Severity Mapping for Architecture.
 
 ---
 

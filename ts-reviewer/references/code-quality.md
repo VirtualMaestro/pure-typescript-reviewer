@@ -67,6 +67,9 @@
 - Circular imports. Severity: **High**.
 - Deep relative imports (`../../../`). Severity: **Low**. Fix: path aliases.
 
+For deeper architectural refactors (shallow modules, dependency seams, module deepening, coupling),
+load `references/architecture.md` — available only when architecture review is enabled (`--arch` or `--full`).
+
 ## Comments
 
 - JSDoc repeating the type info. Severity: **Low**.

@@ -298,6 +298,34 @@ After fix completes:
 
 ---
 
+## Architecture Fixes
+
+Architecture findings in the `## Architecture Opportunities` section carry a `Fixability:` field.
+Fix mode behavior is determined by that field:
+
+| Fixability | Fix mode behavior |
+|---|---|
+| `auto` | Apply in normal fix loop. Run `tsc --noEmit` after each file as usual. |
+| `needs-confirm` | Surface to user with a diff/migration plan. Do NOT apply automatically. Wait for explicit go-ahead. |
+| `report-only` | Never apply. Leave in report as documentation. Mark `[SKIPPED: report-only]`. |
+
+### Testing strategy for architecture fixes
+
+When applying an `auto` architecture fix (module merge, import path cleanup, narrow circular-import break):
+
+1. Write new tests at the **deepened module's interface** — test observable behavior, not internal state.
+2. Delete old unit tests that tested the shallow modules being merged — they become redundant once the deeper module's interface tests cover the same behavior.
+3. Tests must survive internal refactors. If a test must change when implementation changes, it's testing past the interface.
+4. Don't expose internal seams through the module interface just to make tests easier to write.
+
+### `needs-confirm` flow
+
+1. Show the user what would change (describe the reorganization or interface change).
+2. If the user approves, apply the fix using the same file-by-file + `tsc` verification loop.
+3. If the user rejects, mark the finding `[SKIPPED: user rejected]` in the report and move on.
+
+---
+
 ## Fix Safety Rules
 
 1. **NEVER commit or stage.** The user reviews and decides.
