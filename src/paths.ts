@@ -11,7 +11,9 @@ export const AI_PROVIDERS: { label: string; value: AiProvider }[] = [
 
 const PROVIDER_BASE: Record<AiProvider, string> = {
   "claude-code": ".claude",
-  "codex": ".codex",
+  // Project-local Codex skills belong in ".agents"; "~/.codex" is the global user dir.
+  // Codex also reads ".codex" implicitly, but ".agents" is the documented location.
+  "codex": ".agents",
   "antigravity": ".agent",
 };
 

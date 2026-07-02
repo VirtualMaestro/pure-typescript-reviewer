@@ -14,17 +14,20 @@ Three modes, one skill:
 | **fix** | Reads the report and applies fixes file-by-file with tsc/lint/test verification |
 | **auto** | Runs scan, asks you to confirm, fixes everything, deletes the report if clean |
 
-The review covers six domains by default, each with its own detailed checklist. Add `--arch` or `--full` to include architecture analysis:
+The review covers nine domains by default, each with its own detailed checklist. Add `--arch` or `--full` to include architecture analysis:
 
 | Domain | Examples | Default |
 |---|---|---|
-| **Type Safety** | `any` abuse, unsafe casts, non-null assertions, missing exhaustive checks | ✓ |
-| **Security** | Injection, prototype pollution, ReDoS, path traversal, hardcoded secrets | ✓ |
-| **Async Patterns** | Floating promises, race conditions, missing error propagation, `forEach(async...)` | ✓ |
-| **Modernization** | `enum` → `as const`, missing `satisfies`, `using` keyword, `import type` | ✓ |
-| **Code Quality** | Dead code, complexity, duplication, hacky patterns, error handling | ✓ |
-| **Config** | tsconfig.json strict flags, module resolution, deprecated options | ✓ |
-| **Architecture** | Shallow modules, scattered concepts, tight coupling, dependency seams, testability | `--arch` / `--full` |
+| **Type Safety** | `any` abuse, unsafe casts, non-null assertions, `unknown` discipline, missing exhaustive checks | ✓ |
+| **Security** | Injection, SSRF, prototype pollution, ReDoS, path traversal, hardcoded secrets | ✓ |
+| **Async Patterns** | Floating promises, race conditions, missing timeouts, unbounded concurrency, `forEach(async...)` | ✓ |
+| **Modernization** | Numeric enums, `\|\|` vs `??`, mutating array methods, `satisfies`, `using` keyword | ✓ |
+| **Code Quality** | Dead code, complexity, duplication, debug artifacts, import-time side effects, testability | ✓ |
+| **Config** | tsconfig.json strict flags, target/lib, module resolution, deprecated options | ✓ |
+| **Boundary Validation** | `as T` on `JSON.parse`/`fetch`/env, DTO vs domain model separation, contract drift | ✓ |
+| **Error Handling** | Silent failures, throw hygiene, `cause` chaining, failure design at API seams | ✓ |
+| **Dependency Hygiene** | Lockfiles, wildcard versions, `npm audit`, duplicate-purpose and trivial deps | ✓ |
+| **Architecture** | Shallow modules, scattered concepts, tight coupling, dependency direction, layering | `--arch` / `--full` |
 
 ## Installation
 
@@ -40,7 +43,7 @@ The installer prints a short summary before installation:
 
 ```text
 TypeScript Code Reviewer
-Checks: type safety, async patterns, security, tsconfig, modernization, code quality
+Checks: type safety, security, async patterns, boundary validation, error handling, modernization, code quality, tsconfig, dependency hygiene
 Target TypeScript: 5.9+
 ```
 
@@ -51,8 +54,10 @@ Supported targets:
 | AI agent | Install path |
 |---|---|
 | Claude Code | `.claude/skills/ts-reviewer/` |
-| Codex | `.codex/skills/ts-reviewer/` |
+| Codex | `.agents/skills/ts-reviewer/` |
 | Antigravity | `.agent/skills/ts-reviewer/` |
+
+> **Note on Codex:** project-local skills belong in `.agents/` per the Codex docs; `~/.codex/` is the *global* per-user directory. Codex also reads a project-local `.codex/` implicitly, so installs from older versions of this installer keep working — but `.agents/` is the correct location going forward.
 
 In non-interactive terminals, the installer selects all supported targets.
 
@@ -80,13 +85,13 @@ Claude will analyze the project and write a report to `code-smells.md` in the pr
 
 #### Domain flags
 
-By default, only the six core domains run. Use flags to control which domains are active:
+By default, only the nine core domains run. Use flags to control which domains are active:
 
 | Flag | What runs |
 |---|---|
-| *(none)* | Type Safety, Security, Async, Modernization, Code Quality, Config |
-| `--arch` | Architecture only (shallow modules, coupling, dependency seams) |
-| `--full` | All seven domains |
+| *(none)* | Type Safety, Security, Async, Modernization, Code Quality, Config, Boundary Validation, Error Handling, Dependency Hygiene |
+| `--arch` | Architecture only (shallow modules, coupling, dependency direction, seams) |
+| `--full` | All ten domains |
 
 Examples:
 
@@ -140,7 +145,7 @@ By default the entire codebase is reviewed. You can narrow the scope:
 | What you say | What gets reviewed |
 |---|---|
 | *"review my code"* | Full codebase |
-| *"review my changes"*, *"check uncommitted"* | Staged + unstaged + untracked `.ts` files |
+| *"review my changes"*, *"check uncommitted"* | Staged + unstaged + untracked `.ts`/`.mts`/`.cts` files |
 | *"review my PR"*, *"diff against main"* | All changes on current branch vs base |
 | *"review last commit"*, *"check last 3 commits"* | Last N commits |
 
@@ -178,13 +183,16 @@ src/                                  # npm/npx installer source
 ts-reviewer/
 ├── SKILL.md                          # Main skill file — mode routing, workflow orchestration
 └── references/
-    ├── type-safety.md                # Checklist: any, casts, !, exhaustiveness, generics
-    ├── security.md                   # Checklist: injection, pollution, ReDoS, traversal
-    ├── async-patterns.md             # Checklist: floating promises, races, cancellation
-    ├── modernization.md              # Checklist: TS 5.9+ idioms, satisfies, using, as const
-    ├── code-quality.md               # Checklist: complexity, dead code, naming, duplication
-    ├── tsconfig.md                   # Checklist: strict flags, module resolution, deprecated
-    ├── architecture.md               # Checklist: shallow modules, coupling, seams, deepening
+    ├── type-safety.md                # Checklist: any, unknown, casts, !, exhaustiveness, branded types
+    ├── security.md                   # Checklist: trust boundaries, injection, SSRF, pollution, ReDoS
+    ├── async-patterns.md             # Checklist: floating promises, races, timeouts, retries, cancellation
+    ├── boundary-validation.md        # Checklist: runtime validation at edges, DTO/domain separation
+    ├── error-handling.md             # Checklist: silent failures, throw hygiene, failure design
+    ├── modernization.md              # Checklist: TS 5.9+ idioms, ??/?. , satisfies, using, toSorted
+    ├── code-quality.md               # Checklist: complexity, dead code, debug artifacts, testability
+    ├── tsconfig.md                   # Checklist: strict flags, target/lib, module resolution, deprecated
+    ├── dependency-hygiene.md         # Checklist: lockfiles, versions, npm audit, dependency choice
+    ├── architecture.md               # Checklist: shallow modules, coupling, dependency direction, seams
     └── fix-workflow.md               # Complete fix protocol: tests, verification, rollback
 ```
 
@@ -198,8 +206,8 @@ ts-reviewer/
 
 1. **Discovery** — detects domain flags, maps the project, reads tsconfig.json, detects linter and test runner. If architecture is active, also maps module relationships and checks for `docs/adr/`.
 2. **Diagnostics** — runs `tsc --noEmit`, linter, and LSP diagnostics (if available)
-3. **Analysis** — specialized passes for each active domain (sub-agents in Claude Code, sequential in Claude.ai), each with its own checklist
-4. **Report** — deduplicates, applies severity boost (scoped modes), consolidates recurring patterns, writes `code-smells.md`. Architecture findings appear in a separate `## Architecture Opportunities` section at the end.
+3. **Analysis** — specialized passes for each active domain (sub-agents in Claude Code, sequential in Claude.ai), each with its own checklist. Every finding passes an Evidence Protocol: verified against the actual file content, confidence-gated, version-gated against the project's TS/runtime.
+4. **Report** — deduplicates, applies severity boost (scoped modes), consolidates recurring patterns, enforces a noise budget, writes `code-smells.md`. Architecture findings appear in a separate `## Architecture Opportunities` section at the end.
 
 ### Fix mode
 

@@ -34,7 +34,7 @@ async function main() {
   process.stdout.write(
     [
       "TypeScript Code Reviewer\n",
-      `Checks: type safety, async patterns, security, tsconfig, modernization, code quality\n`,
+      `Checks: type safety, security, async patterns, boundary validation, error handling, modernization, code quality, tsconfig, dependency hygiene\n`,
       `Target TypeScript: ${TYPESCRIPT_VERSION}\n`,
       "\n",
     ].join("")
