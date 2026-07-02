@@ -33,9 +33,9 @@ Controls which review domains are active. Detected from flags first, then natura
 
 | Flag / phrase | Active domains |
 |---|---|
-| (none / default) | Type Safety, Security, Async Patterns, Modernization, Code Quality, Config |
+| (none / default) | Type Safety, Security, Async Patterns, Modernization, Code Quality, Config, Boundary Validation, Error Handling, Dependency Hygiene |
 | `--arch` / "review architecture" / "find refactoring opportunities" / "deepening review" | Architecture only |
-| `--full` / "full audit" / "full review" / "review everything" | All 7 domains (default 6 + Architecture) |
+| `--full` / "full audit" / "full review" / "review everything" | All 10 domains (default 9 + Architecture) |
 
 Parse order: check for explicit `--arch` / `--full` / `--no-arch` flags in the user's message first.
 Fall back to phrase detection. If no flag or phrase matches → default domain set (no architecture).
@@ -104,29 +104,33 @@ If not specified, default to **full codebase**.
 
 ### Git commands per scope
 
-**`full`** — all `.ts` files:
+**`full`** — all TypeScript files:
 ```bash
-npx glob '**/*.ts' --ignore '**/node_modules/**'
-# or: git ls-files '*.ts'
+npx glob '**/*.{ts,mts,cts}' --ignore '**/node_modules/**'
+# or: git ls-files '*.ts' '*.mts' '*.cts'
 ```
 
 **`uncommitted`** — staged + unstaged + untracked:
 ```bash
-git diff --name-only HEAD -- '*.ts'
-git ls-files --others --exclude-standard -- '*.ts'
+git diff --name-only HEAD -- '*.ts' '*.mts' '*.cts'
+git ls-files --others --exclude-standard -- '*.ts' '*.mts' '*.cts'
 ```
 
 **`branch`** — current branch vs base:
 ```bash
 BASE=$(git rev-parse --verify main 2>/dev/null && echo main || echo master)
-git diff --name-only "$BASE"...HEAD -- '*.ts'
-git diff --name-only HEAD -- '*.ts'
+git diff --name-only "$BASE"...HEAD -- '*.ts' '*.mts' '*.cts'
+git diff --name-only HEAD -- '*.ts' '*.mts' '*.cts'
 ```
 
 **`commits:N`** — last N commits:
 ```bash
-git diff --name-only HEAD~N..HEAD -- '*.ts'
+git diff --name-only HEAD~N..HEAD -- '*.ts' '*.mts' '*.cts'
 ```
+
+**File type policy:** `.mts`/`.cts` are reviewed like `.ts`. `.d.ts` files are reviewed
+only by the Type Safety and Config domains (declarations have no runtime behavior).
+`.tsx` is out of scope — pure TypeScript only, no frameworks.
 
 ### Context files (scoped reviews)
 
@@ -143,7 +147,7 @@ Context files are NOT analyzed for issues.
 
 Collect changed hunks:
 ```bash
-git diff -U0 [appropriate range] -- '*.ts' | grep '^@@'
+git diff -U0 [appropriate range] -- '*.ts' '*.mts' '*.cts' | grep '^@@'
 ```
 
 - Issue on **new/modified line**: boost severity +1 (Low→Medium, Medium→High, High→Highest)
@@ -164,6 +168,9 @@ git diff -U0 [appropriate range] -- '*.ts' | grep '^@@'
 
 4. **Read `tsconfig.json`**. Load `references/tsconfig.md` and audit config flags.
    In scoped modes: only flag config if `tsconfig.json` is in diff or if full review.
+   Monorepos: detect workspaces (`workspaces` in package.json, `pnpm-workspace.yaml`) and
+   multiple tsconfigs (`tsconfig.build.json`, per-package configs, `references`). Audit the
+   config that actually governs the files in scope; note which config applies in the summary.
 
 5. **Check for linter configs** — `eslint.config.*`, `.eslintrc.*`, `biome.json`, `deno.json`.
 
@@ -200,7 +207,11 @@ Files in scope: <N> .ts files (+ <M> context files)
 npx tsc --noEmit 2>&1 | head -200
 ```
 
-Compiler errors -> **Highest**. Warnings -> **High**.
+All output lines are errors (tsc emits no warnings). Triage each error:
+- Indicates a runtime hazard (null/undefined access, wrong argument shape,
+  missing property) -> **Highest**
+- Hygiene errors (unused locals, unreachable code, implicit any on internals) -> **High**
+
 In scoped modes: run on full project, report only errors in scoped files.
 
 ### 2b. Linter
@@ -208,7 +219,11 @@ In scoped modes: run on full project, report only errors in scoped files.
 ESLint: `npx eslint [files] --format json 2>/dev/null | head -500`
 Biome: `npx biome check [files] --reporter json 2>/dev/null | head -500`
 
-Map: `error` -> **High**, `warning` -> **Medium**, `info` -> **Low**.
+Map linter severities conservatively — projects configure stylistic rules as `error`:
+- Rule matches a checklist item in a reference file -> use the checklist severity
+- Correctness-class rule (`no-floating-promises`, `no-misused-promises`,
+  `no-unsafe-*`) -> **High**
+- Anything else: `error` -> **Medium**, `warning` -> **Low**, `info` -> **Low**
 
 ### 2c. LSP diagnostics (if available)
 
@@ -228,9 +243,12 @@ Run only the agents whose domain is in the active domain set (see Domain Set sec
 | Security | `references/security.md` | Injection, prototype pollution, ReDoS, path traversal |
 | Async Patterns | `references/async-patterns.md` | Floating promises, race conditions, error propagation |
 | Modernization | `references/modernization.md` | Outdated patterns vs TS 5.9+ idioms |
-| Code Quality | `references/code-quality.md` | Complexity, duplication, naming, dead code |
+| Code Quality | `references/code-quality.md` | Complexity, duplication, naming, dead code, testability |
 | Config | `references/tsconfig.md` | tsconfig.json flags and module setup |
-| Architecture | `references/architecture.md` | Shallow modules, scattered concepts, coupling, dependency seams, testability |
+| Boundary Validation | `references/boundary-validation.md` | Runtime validation at system edges, DTO/domain separation |
+| Error Handling | `references/error-handling.md` | Silent failures, throw hygiene, failure design |
+| Dependency Hygiene | `references/dependency-hygiene.md` | package.json, versions, lockfiles, supply chain |
+| Architecture | `references/architecture.md` | Shallow modules, scattered concepts, coupling, dependency seams, layering |
 
 ### Sub-agent template (Claude Code)
 
@@ -253,7 +271,7 @@ Output JSONL, one object per line:
   "fix": "Concrete recommendation with code example",
   "auto_fixable": true|false,
   "in_diff": true|false,
-  "reference": "URL or docs ref"
+  "reference": "optional — omit unless allowed by the Evidence Protocol"
 }
 ```
 
@@ -274,8 +292,11 @@ Go through each domain one at a time. Same JSON structure.
 
 1. Apply severity boost (scoped modes only): `in_diff: true` -> boost +1 level.
 2. Deduplicate: same file + line + issue -> keep one.
-3. Merge overlapping: keep higher severity, note overlap.
+3. Merge overlapping: keep higher severity, note overlap. If two domains flag the same
+   file + line, merge into one entry attributing both categories — never emit twice.
 4. Consolidate patterns: 3+ identical issues -> one "Recurring Pattern" entry.
+5. Noise budget: if a single domain produces > 25 Medium/Low findings, keep its top 15
+   by severity and impact, consolidate the rest into Recurring Pattern entries with counts.
 
 ### Report structure
 
@@ -289,7 +310,7 @@ Write to `code-smells.md`:
 **TypeScript version:** <version>
 **Scope:** Full / Uncommitted / Branch `x` vs `y` / Last N commits
 **Files analyzed:** N (+ M context)
-**Total issues:** N (X critical, Y high, Z medium, W low)
+**Total issues:** N (X highest, Y high, Z medium, W low)
 **Severity-boosted:** N (scoped modes only)
 
 ## Summary
@@ -379,11 +400,38 @@ See `references/architecture.md` → Severity Mapping for Architecture.
 
 ---
 
+## Evidence Protocol
+
+Every finding must survive verification before it enters the report:
+
+1. **Re-read before reporting.** After drafting a finding, re-read the exact lines in the
+   current file state. The `snippet` must appear verbatim at the stated `line` (±2 lines).
+   If it doesn't, re-locate or drop the finding.
+2. **Check the surrounding context.** If a guard, validation, type narrowing, or comment
+   within the enclosing function/module already handles the case, the finding is a false
+   positive — drop it, don't downgrade it.
+3. **Confidence gate.** Report only findings you can defend with the code in front of you.
+   If a finding depends on runtime behavior you cannot see (external input actually reaching
+   a sink, concurrent callers actually existing), either verify the data flow by reading the
+   callers, or mark the finding's problem statement with "if <condition>" and cap severity
+   at Medium.
+4. **References must be real.** The `reference` field is optional. Only cite
+   typescriptlang.org, developer.mozilla.org, nodejs.org, or a file path inside this skill.
+   Never construct URLs from memory for anything else — omit the field instead.
+5. **Convention override.** If a flagged non-High pattern appears consistently 5+ times
+   across the codebase, treat it as an intentional convention: downgrade one severity level
+   and report it once as a Recurring Pattern, not per occurrence.
+6. **Version gate.** Every finding that recommends newer syntax or APIs must state the
+   minimum TS/runtime version required, verified against the project's actual TS version,
+   `target`/`lib`, and runtime. Never recommend a feature the project cannot use.
+
+---
+
 ## Important Guidelines
 
 - **No framework checks.** Pure TypeScript only.
-- **No false positives from intentional patterns.** `// @ts-expect-error` with explanation = Low.
-  `// @ts-ignore` (legacy) = Medium. Without explanation = Medium.
+- **No false positives from intentional patterns.** Suppression-directive severities are
+  owned by `references/type-safety.md` (Suppression Directives) — follow it, don't improvise.
 - **Respect project conventions.** Don't flag consistent patterns unless harmful.
 - **Be concrete.** Every issue needs a snippet and a fix recommendation.
   "Consider refactoring" is not a valid fix.

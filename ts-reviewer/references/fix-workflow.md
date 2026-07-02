@@ -35,7 +35,7 @@ Check for test runner in this order:
 
 | Signal | Runner | Command |
 |---|---|---|
-| `package.json` has `"scripts": { "test": "..." }` | npm script | `npm test` |
+| `package.json` has `"scripts": { "test": "..." }` AND the script is not the npm placeholder (`echo "Error: no test specified" && exit 1`) | npm script | `npm test` (use `pnpm test` / `yarn test` if a pnpm/yarn lockfile is present) |
 | `vitest.config.*` exists | vitest | `npx vitest run` |
 | `jest.config.*` or `"jest"` in package.json | jest | `npx jest` |
 | `*.test.ts` / `*.spec.ts` + `"mocha"` in devDeps | mocha | `npx mocha` |
@@ -57,8 +57,11 @@ Also detect the test file naming convention:
 
 Run the full test suite BEFORE any changes:
 ```bash
-<test_command> 2>&1 | tee .claude/ts-reviewer-baseline.log
+<test_command> 2>&1 | tee "$TMPDIR/ts-reviewer-baseline.log"
 ```
+Write logs to the OS temp directory (or the project root if temp is unavailable —
+recommend gitignoring them). Do NOT write to `.claude/` — the skill must work in
+non-Claude environments and the directory may not exist.
 
 Record:
 - Total tests: N
@@ -112,12 +115,17 @@ Regression test conventions:
   });
   ```
 - Keep tests focused and minimal — test the specific fix, not the entire function
+- Tell the user these files are candidates to rename and merge into their existing
+  suites — the `.reviewer-fixes` naming is a handoff convention, not a permanent home
 
 ### 4c. Run tsc after each file
 
 ```bash
 npx tsc --noEmit 2>&1
 ```
+
+On large repos (> ~30 files in the work plan) where a full typecheck is slow, use
+`npx tsc --noEmit --incremental` or batch the check every 3-5 files instead of every file.
 
 If `tsc` reports NEW errors in the file we just fixed or in files affected by our changes:
 - Analyze the errors
@@ -151,7 +159,7 @@ If linter reports errors in files we changed:
 
 Run the full test suite:
 ```bash
-<test_command> 2>&1 | tee .claude/ts-reviewer-postfix.log
+<test_command> 2>&1 | tee "$TMPDIR/ts-reviewer-postfix.log"
 ```
 
 Compare with baseline:
@@ -340,8 +348,12 @@ When applying an `auto` architecture fix (module merge, import path cleanup, nar
    Fix exactly what the report says, nothing more.
 6. **If uncertain, skip.** If a fix is ambiguous or risky, mark it as
    `[SKIPPED: requires manual review]` and move on. Better to skip than to break.
-7. **Revert individual fixes with `git checkout -- <file>`** before the fix was applied,
-   then re-apply only the safe fixes. Use `git diff` to identify what changed in a file.
+7. **Snapshot before touching, restore to revert.** Before applying the first fix to a
+   file, save its exact current content (copy to a temp/scratch directory, keyed by
+   path). To revert a fix, restore the file from that snapshot and re-apply only the
+   fixes that were verified safe. NEVER use `git checkout -- <file>` or `git restore` —
+   the user may have uncommitted changes in the same file, and those commands destroy
+   them along with the fix.
 
 ---
 

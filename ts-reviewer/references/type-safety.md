@@ -27,11 +27,41 @@
 - `as Type` that narrows a wider type without validation.
   Severity: **High** — a runtime mismatch is a bug waiting to happen.
   Fix: use a type guard, `satisfies`, or a validation function (e.g., Zod, io-ts, hand-written).
-- `as unknown as Type` — double cast is almost always a red flag.
+- `as unknown as Type` or `as any as Type` — double cast is almost always a red flag.
   Severity: **High**.
 - `<Type>value` (angle-bracket cast) — same issue as `as`, plus it conflicts with JSX.
   Severity: **Medium** (prefer `as` syntax, but still flag the underlying safety issue).
 - `as const` used correctly is NOT an issue — do not flag it.
+
+## `unknown` Discipline
+
+- `unknown` narrowed with `as` instead of a runtime check. Severity: **High** — this is
+  `any` with extra steps. Fix: `typeof` / `instanceof` / `in` guards, or schema validation.
+- `catch (e)` handled via `(e as Error).message`. Severity: **Medium**.
+  Fix: `e instanceof Error ? e.message : String(e)`.
+- Public API returning `unknown` where a generic or a discriminated result type is
+  derivable — forces every caller to cast. Severity: **Medium**.
+
+## Structural Typing Traps
+
+- `{}` as a type annotation — means "any non-nullish value", not "empty object" or
+  "plain object". Severity: **Medium**. Fix: `Record<string, unknown>`, `object`, or a
+  concrete shape.
+- Boxed primitive types `String`, `Number`, `Boolean`, `Object` in annotations.
+  Severity: **Medium**. Fix: lowercase primitives.
+- Method shorthand in interfaces intended as strict callbacks:
+  `interface H { handle(e: E): void }` is bivariant even under `strictFunctionTypes`;
+  property syntax `handle: (e: E) => void` is checked contravariantly.
+  Severity: **Low** internal, **Medium** on public APIs where wrong-argument
+  implementations would compile.
+
+## Branded Types (suggestion-level)
+
+- Multiple domain identifiers sharing one primitive type (`userId: string`,
+  `orderId: string`) passed across module boundaries — mix-ups compile silently.
+  Severity: **Low** (suggest, don't insist). Fix: brand the types:
+  `type UserId = string & { readonly __brand: 'UserId' }` plus a constructor function.
+  Only flag when the codebase shows 3+ same-primitive IDs crossing function boundaries.
 
 ## Non-null Assertions (`!`)
 
@@ -69,6 +99,10 @@
 - Union types that should be discriminated but aren't (no shared literal field).
   Severity: **Medium**.
 - Discriminant field is `string` instead of a literal type. Severity: **Medium**.
+- Boolean flag soup modeling mutually exclusive states
+  (`{ loading: boolean; error?: E; data?: T }` allows impossible combinations).
+  Severity: **Medium**. Fix: discriminated union —
+  `{ status: 'loading' } | { status: 'error'; error: E } | { status: 'ready'; data: T }`.
 
 ## Index Signatures
 
@@ -99,3 +133,16 @@
   `Parameters`, `Awaited`, `NoInfer`). Severity: **Low**.
 - `Omit` with a key that doesn't exist in the source type — TS silently allows this,
   which may indicate a typo or stale code. Severity: **Low**.
+
+## Readonly Posture
+
+- Mutable arrays/objects in exported signatures where the function never mutates them —
+  `readonly T[]` / `Readonly<T>` communicates the contract and accepts more inputs.
+  Severity: **Low**. Public APIs only; don't flag internals.
+
+## Type-level Complexity
+
+- Conditional type > 2 levels deep, or mapped type with nested `infer`, used in only one
+  place. Severity: **Low**. Fix: inline or simplify to a union/overloads unless the
+  type-level machinery removes real duplication. Clever types are a maintenance cost —
+  the next reader must decode them.

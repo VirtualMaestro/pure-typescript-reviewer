@@ -3,6 +3,27 @@
 For pure TypeScript code — no framework-specific issues.
 Focus on patterns dangerous regardless of runtime (Node.js, Deno, Bun, browser).
 
+## Trust Boundaries — read first
+
+Every item below assumes the dangerous value is *attacker-influenced*. Before flagging,
+trace where the value comes from:
+
+**Untrusted sources:** network request bodies/headers/URLs, CLI arguments, environment
+variables in multi-tenant contexts, file contents from user-writable paths, database
+fields that were ever written from user input, messages from queues/sockets, anything
+returned by a third-party API.
+
+**Trusted sources:** literals, values from this codebase's own constants/config files,
+values already validated by a schema at the boundary (note where).
+
+Rules:
+- Value provably static/internal -> downgrade the finding to **Medium** and say why it
+  still matters (fragile pattern), or drop it if the sink is safe by construction.
+- Taint survives transformations: concatenation, template literals, `JSON.parse`,
+  property access on a parsed object all preserve untrustedness.
+- If you cannot trace the source within the files available, report at the listed
+  severity but state the assumption: "assumes `x` can carry external input".
+
 ## Injection
 
 - **`eval()` and `new Function()`** — executing dynamic strings.
@@ -15,6 +36,21 @@ Focus on patterns dangerous regardless of runtime (Node.js, Deno, Bun, browser).
   Severity: **Highest**. Fix: parameterized queries.
 - **RegExp from user input** — `new RegExp(userInput)`.
   Severity: **High** (ReDoS + injection). Fix: escape input or use static regex.
+
+## SSRF
+
+- `fetch()` / `http.request()` / HTTP client call with a URL built from external input,
+  without a protocol + host allowlist. Severity: **High**. Fix: parse with `new URL()`,
+  check protocol is http(s) and host against an explicit allowlist; reject redirects to
+  internal ranges.
+
+## DOM Sinks (browser code)
+
+- `element.innerHTML = x`, `insertAdjacentHTML`, `document.write` where `x` has any
+  non-literal part. Severity: **High**. Fix: `textContent` for text; a sanitizer
+  (DOMPurify) only when HTML is genuinely required.
+- `location.href = x` / `window.open(x)` from external input — `javascript:` URL risk.
+  Severity: **Medium**. Fix: validate protocol via `new URL()`.
 
 ## Prototype Pollution
 
@@ -55,8 +91,15 @@ Focus on patterns dangerous regardless of runtime (Node.js, Deno, Bun, browser).
 
 ## Timing Attacks
 
-- String comparison for secrets using `===`. Severity: **High**.
-  Fix: `crypto.timingSafeEqual()`.
+- String comparison using `===` where both sides are secrets/tokens/MACs/password hashes
+  being verified. Severity: **High**. Fix: `crypto.timingSafeEqual()`.
+  Do NOT flag ordinary string comparisons that merely involve variables named "token" —
+  only comparisons whose result reveals secret equality to an attacker.
+
+## Unsafe Memory
+
+- `Buffer.allocUnsafe()` where the buffer is not immediately and fully overwritten —
+  leaks previous memory contents. Severity: **High**. Fix: `Buffer.alloc()`.
 
 ## Denial of Service
 

@@ -49,6 +49,46 @@ Use these terms in all architecture findings. Don't substitute "component", "ser
 - Shared utility module mixes unrelated domain concepts (a grab-bag util). Severity: **Medium**.
 - Feature logic split by technical layer (e.g. controller / service / repo per feature) in a way that destroys locality — change to one feature requires touching 4+ files. Severity: **Medium**.
 
+### Under-Engineering
+
+Depth cuts both ways — flag missing abstraction where it already hurts:
+
+- Identical business rule (same constants/branching) implemented in 2+ modules.
+  Severity: **Medium**. Under-abstraction; deepen one module to own the rule.
+- One module accreting unrelated concerns (imports from many unrelated domains, exports
+  serving disjoint caller groups). Severity: **Medium**. Split along caller groups.
+- Event/string-keyed indirection between two modules that only ever talk to each other —
+  a direct typed call would be simpler and checkable. Severity: **Low**.
+
+## Dependency Direction and Layering
+
+Direction matters more than layer count. Detect and flag:
+
+- Domain/computation modules importing IO directly (`node:fs`, `node:http`, DB clients,
+  `fetch`) when the dependency classification says the IO belongs behind a seam.
+  Severity: **Medium**. The domain owns logic; transport/storage is injected or
+  isolated at the edge.
+- Shared/leaf modules (`utils/`, `types/`, `core/`) importing from feature modules —
+  inverted direction; the "shared" code now depends on a specific feature.
+  Severity: **High** — this is how import cycles start.
+- Wire/DTO types from an external API imported deep into domain modules rather than
+  mapped to domain types at the boundary. Severity: **Medium**.
+  Cross-reference: `references/boundary-validation.md`.
+
+## Detection Heuristics
+
+Run these — don't guess from file names:
+
+- Grep feature-module imports inside `shared|common|core|utils` directories
+  (inverted dependency direction).
+- For each module, list its importers. A module whose every export has exactly one
+  importer is a pass-through candidate — apply the deletion test.
+- An interface/type re-exported through 3+ files unchanged marks a pass-through chain.
+- A utility file imported by the majority of modules is a grab-bag candidate — check
+  whether its exports share a domain concept.
+- Change-set locality: in `git log --name-only`, do commits touching one feature
+  consistently touch 4+ directories? That feature's logic is scattered.
+
 ## Dependency Classification
 
 When proposing a deepening fix, classify the dependency to determine test strategy:
