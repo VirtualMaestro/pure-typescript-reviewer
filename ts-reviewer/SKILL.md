@@ -9,183 +9,191 @@ description: >
   find refactoring opportunities, full audit. Pure TypeScript 5.9+ only.
 ---
 
-# TypeScript Code Reviewer
+mode: typescript_code_review
 
-A comprehensive, multi-pass code reviewer and auto-fixer for pure TypeScript 5.9+ codebases.
+purpose:
+- review a pure TypeScript 5.9+ codebase in multiple passes, and write what it finds to a report
+- apply the fixes named in that report, with compiler, linter, and test verification after each
 
-## Modes
+inputs:
+- the request, which carries the run mode, the domain set, and the scope mode
+- the project `tsconfig.json`, `package.json`, and linter config
+- the reference checklists under `references/`
 
-This skill operates in three modes. Detect the mode from the user's request:
+preconditions:
+- `code-smells.md` exists before fix mode runs: it is the work plan, and fix stops with an error when it is absent
 
-| User says | Mode |
+scope:
+- `.ts`, `.mts`, and `.cts` files are reviewed alike
+- `.d.ts` files are reviewed by the Type Safety and Config domains only: a declaration has no runtime behavior
+- `.tsx` is out of scope
+- the analysis scope in a scoped mode is the diff file list, and the reading scope is wider
+- read as read-only context: `tsconfig.json`, the configs it extends, and `package.json`
+- read as read-only context: the files the scoped files import 1 level deep, and the shared types in `types.ts`, `*.d.ts`, `interfaces/`, `shared/`
+
+forbidden_behaviors:
+- do not write the report under `.claude/`: it stays visible when no Claude tooling is present
+- do not commit and do not stage: the operator reviews the fixes and decides
+- do not check framework code: the scope is pure TypeScript
+- do not require `CONTEXT.md` or any other domain-doc file
+- do not report an issue found in a context file
+- do not improvise a suppression-directive severity: `references/type-safety.md` owns them
+- do not flag a consistent project convention unless it is harmful
+- do not report a finding without a snippet and a concrete fix: "Consider refactoring" is not a fix
+- do not report a finding whose snippet is absent at the stated line, give or take 2 lines: re-locate it or drop it
+- do not downgrade a finding the enclosing function or module already guards, validates, narrows, or comments: drop it
+- do not report a finding you cannot defend from the code in front of you
+- do not cite a link outside typescriptlang.org, developer.mozilla.org, and nodejs.org, or a path inside this skill: omit the `reference` field instead
+- do not build a link from memory
+- do not recommend a feature the project TypeScript version, `target`, `lib`, or runtime cannot use
+- do not emit the same file and line twice
+- do not boost severity in `full` scope mode: all code is treated alike
+- do not flag a config issue in a scoped mode unless `tsconfig.json` is in the diff
+
+outputs:
+- `code-smells.md` in the project root: the scan report, and the work plan fix reads
+- the `## Architecture Opportunities` section of that report, only when Architecture is active and at least 1 candidate is found
+- the audit trail in `code-smells.md` when any issue remains: BEFORE/AFTER for each fixed issue, a status tag for each failed, reverted, or skipped issue, the original entry for each untouched issue
+- a regression test for each fix that is testable
+
+run_modes:
+
+| Run mode | The request says | What runs |
+|---|---|---|
+| `scan` | review, find issues, audit, scan, check | the analysis, then the report |
+| `fix` | fix issues, fix the report, apply fixes, fix code smells | the fixes named in the report, with verification |
+| `auto` | review and fix, auto-fix, scan and fix, clean up | scan, then fix, then a re-scan |
+
+domain_sets:
+- read the explicit `--arch`, `--full`, and `--no-arch` flags in the request first, then the phrases below, then fall back to the default set
+- Architecture is off in a default scan, and loads `references/architecture.md` only when it is active
+
+| Flag or phrase | Active domains |
 |---|---|
-| "review", "find issues", "audit", "scan", "check" | `scan` |
-| "fix issues", "fix the report", "apply fixes", "fix code smells" | `fix` |
-| "review and fix", "auto-fix", "scan and fix", "clean up" | `auto` |
+| none | the 9 default domains: Type Safety, Security, Async Patterns, Modernization, Code Quality, Config, Boundary Validation, Error Handling, Dependency Hygiene |
+| `--arch`, review architecture, find refactoring opportunities, deepening review | Architecture only |
+| `--full`, full audit, full review, review everything | all 10 domains |
 
-**`scan`** — Analyze the codebase and write a report to `code-smells.md`.
-**`fix`** — Read `code-smells.md` and apply fixes with verification.
-**`auto`** — Run scan, then fix, then re-scan to verify. Delete report if clean.
+scope_modes:
 
-## Domain Set
-
-Controls which review domains are active. Detected from flags first, then natural-language phrases.
-
-| Flag / phrase | Active domains |
+| Scope mode | The request says |
 |---|---|
-| (none / default) | Type Safety, Security, Async Patterns, Modernization, Code Quality, Config, Boundary Validation, Error Handling, Dependency Hygiene |
-| `--arch` / "review architecture" / "find refactoring opportunities" / "deepening review" | Architecture only |
-| `--full` / "full audit" / "full review" / "review everything" | All 10 domains (default 9 + Architecture) |
+| `full` | review my code, audit the project, find issues, with no qualifier |
+| `uncommitted` | review my changes, check uncommitted, what I changed |
+| `branch` | review my PR, review my branch, diff against main |
+| `commits:N` | review last commit, check last 3 commits, what did I break |
 
-Parse order: check for explicit `--arch` / `--full` / `--no-arch` flags in the user's message first.
-Fall back to phrase detection. If no flag or phrase matches → default domain set (no architecture).
+domains:
 
-Architecture domain is **off** in default scans. It loads `references/architecture.md` and adds
-an `## Architecture Opportunities` section to `code-smells.md` only when active.
+| Domain | Reference file | Focus |
+|---|---|---|
+| Type Safety | `references/type-safety.md` | `any`, casts, `!`, exhaustiveness, generics |
+| Security | `references/security.md` | injection, prototype pollution, ReDoS, path traversal |
+| Async Patterns | `references/async-patterns.md` | floating promises, race conditions, error propagation |
+| Modernization | `references/modernization.md` | outdated patterns against TS 5.9+ idioms |
+| Code Quality | `references/code-quality.md` | complexity, duplication, naming, dead code, testability |
+| Config | `references/tsconfig.md` | `tsconfig.json` flags and module setup |
+| Boundary Validation | `references/boundary-validation.md` | runtime validation at system edges, DTO and domain separation |
+| Error Handling | `references/error-handling.md` | silent failures, throw hygiene, failure design |
+| Dependency Hygiene | `references/dependency-hygiene.md` | `package.json`, versions, lockfiles, supply chain |
+| Architecture | `references/architecture.md` | shallow modules, scattered concepts, coupling, dependency seams, layering |
 
-## Report File Location
+workflow:
+1. identify the run mode from `run_modes`
+2. identify the active domain set from `domain_sets`
+3. identify the scope mode from `scope_modes`, and default to `full` when the request names none
+4. build the file list with the command in `scope_commands` for that scope mode
+5. ask whether to fall back to `full` when a scoped mode yields 0 files
+6. map the project tree in full, whatever the scope mode
+7. read `tsconfig.json` and `references/tsconfig.md`, then audit the config flags
+8. detect monorepo workspaces in `package.json` and `pnpm-workspace.yaml`, and every further tsconfig
+9. audit the config that governs the files in scope, and name that config in the summary
+10. read the linter config: `eslint.config.*`, `.eslintrc.*`, `biome.json`, `deno.json`
+11. read `package.json` for the TypeScript version, the dependencies, and the module type
+12. identify the entry points: `index.ts`, `main.ts`, the `exports` of `package.json`
+13. collect the context files named in `scope:` when the scope mode is scoped
+14. map the module relationships when Architecture is active: circular imports, deep relative imports, barrel-file cycles, feature slices, public entry points
+15. scan `docs/adr/` for architectural decisions before proposing a change, and skip it silently when the directory is absent
+16. report the discovery summary in the shape of `discovery_summary`
+17. run `npx tsc --noEmit 2>&1 | head -200` over the full project, and report only the errors in the scoped files
+18. run the linter: `npx eslint [files] --format json` or `npx biome check [files] --reporter json`
+19. query the TypeScript LSP over MCP when it is reachable, then merge and deduplicate against the compiler output
+20. triage every compiler and linter diagnostic through `severity_mapping`
+21. read the reference file named in `domains` before each analysis pass
+22. run only the passes whose domain is in the active domain set, as sub-agents shaped by `subagent_template` or one domain at a time
+23. give every agent all the scoped files when scoped files <= 20, and split by directory above that, with the shared types visible to every agent
+24. re-read the exact lines in the current file state before a finding enters the report
+25. read the callers to verify a data flow a finding rests on, or mark its problem statement with "if <condition>" and cap its severity at Medium
+26. state the minimum TypeScript and runtime version each finding that recommends newer syntax needs, checked against the project version, `target`, `lib`, and runtime
+27. downgrade a flagged non-High pattern that appears 5+ times across the codebase by 1 level, and report it once as a Recurring Pattern
+28. boost a finding carrying `in_diff: true` by 1 level in a scoped mode, and mark it `High [boosted, was Medium — new code]`
+29. deduplicate the findings on the same file, line, and issue, keeping 1
+30. merge the findings 2 domains raise on the same file and line into 1 entry attributing both categories, at the higher severity
+31. consolidate 3+ identical issues into 1 Recurring Pattern entry
+32. keep the top 15 by severity and impact when a single domain produces more than 25 Medium or Low findings, and consolidate the rest into Recurring Pattern entries with their counts
+33. write `code-smells.md` in the shape of `report_format`
+34. sort by severity group, then category, then file path, and place `in_diff: true` before pre-existing in a scoped mode
+35. show the top 10 and summarize the rest in a table when Medium and Low together hold more than 15 issues
+36. recommend that the operator adds `code-smells.md` to `.gitignore`: it is a review artifact
+37. read `references/fix-workflow.md` before fix mode executes: it holds the complete protocol
+38. detect the test runner and run the baseline tests
+39. fix the issues file by file, and run `tsc --noEmit` after each file
+40. run the linter and fix the lint errors it reports
+41. run the full test suite, compare it against the baseline, and fix the regressions
+42. repeat the compiler, linter, and test verification with verification iterations <= 5
+43. update `code-smells.md`: remove what is fixed, mark what failed
+44. show the scan summary in auto mode, and ask the operator whether to proceed with the fix
+45. re-scan after the fix in auto mode with full scan-fix cycles <= 2, and stop when issues persist after the second
+46. delete `code-smells.md` and report success when every issue is fixed
 
-- Always write to `code-smells.md` in the project root (not in `.claude/`)
-  This ensures the skill works in non-Claude environments and the file is visible regardless of tooling.
-- Recommend the user adds `code-smells.md` to `.gitignore` — it's a review artifact
-
----
-
-## High-Level Workflows
-
-### scan
-
-```
-Phase 1: Discovery    -> understand project structure, config, scope
-Phase 2: Diagnostics  -> run tsc, linters, collect machine-reported issues
-Phase 3: Analysis     -> spin up specialized sub-agents (or run sequentially)
-Phase 4: Report       -> deduplicate, rank, write code-smells.md
-```
-
-### fix
-
-Read `references/fix-workflow.md` before executing fix mode.
-
-```
-Step 1: Read code-smells.md (must exist — error if missing)
-Step 2: Detect test runner, run baseline tests
-Step 3: Fix issues file-by-file, write regression tests, run tsc after each file
-Step 4: Run linter, fix lint errors
-Step 5: Run full test suite, compare with baseline, fix regressions
-Step 6: Verification loop — repeat tsc + lint + tests up to 5 iterations
-Step 7: Update code-smells.md (remove fixed, mark failed)
-        Do NOT commit, do NOT stage
-```
-
-### auto
-
-```
-1. Run scan -> writes code-smells.md
-2. Show summary to user, ask "proceed with fix?"
-3. If yes -> run fix (reads references/fix-workflow.md for full protocol)
-4. If ALL issues fixed -> delete code-smells.md, report success
-5. If some remain -> code-smells.md stays as audit trail (fixed + remaining)
-Max 2 full scan-fix cycles. If issues persist after 2 cycles, stop.
-```
-
----
-
-## Scope Modes
-
-The reviewer supports four scope modes. Detect the mode from the user's request.
-If not specified, default to **full codebase**.
-
-| User says | Scope mode |
-|---|---|
-| "review my code", "audit the project", "find issues" (no qualifier) | `full` |
-| "review my changes", "check uncommitted", "what I changed" | `uncommitted` |
-| "review my PR", "review my branch", "diff against main" | `branch` |
-| "review last commit", "check last 3 commits", "what did I break" | `commits:N` |
-
-### Git commands per scope
-
-**`full`** — all TypeScript files:
+scope_commands:
 ```bash
+# full — every TypeScript file
 npx glob '**/*.{ts,mts,cts}' --ignore '**/node_modules/**'
 # or: git ls-files '*.ts' '*.mts' '*.cts'
-```
 
-**`uncommitted`** — staged + unstaged + untracked:
-```bash
+# uncommitted — staged, unstaged, and untracked
 git diff --name-only HEAD -- '*.ts' '*.mts' '*.cts'
 git ls-files --others --exclude-standard -- '*.ts' '*.mts' '*.cts'
-```
 
-**`branch`** — current branch vs base:
-```bash
+# branch — the current branch against its base
 BASE=$(git rev-parse --verify main 2>/dev/null && echo main || echo master)
 git diff --name-only "$BASE"...HEAD -- '*.ts' '*.mts' '*.cts'
 git diff --name-only HEAD -- '*.ts' '*.mts' '*.cts'
-```
 
-**`commits:N`** — last N commits:
-```bash
+# commits:N — the last N commits
 git diff --name-only HEAD~N..HEAD -- '*.ts' '*.mts' '*.cts'
+
+# the changed hunks, for the severity boost in a scoped mode
+git diff -U0 <range> -- '*.ts' '*.mts' '*.cts' | grep '^@@'
 ```
 
-**File type policy:** `.mts`/`.cts` are reviewed like `.ts`. `.d.ts` files are reviewed
-only by the Type Safety and Config domains (declarations have no runtime behavior).
-`.tsx` is out of scope — pure TypeScript only, no frameworks.
+severity_scale:
+- these are the base severities in a scoped mode, before the boost
+- a finding on an unchanged line keeps its severity: it is pre-existing tech debt, and it is informational
+- an Architecture finding uses this scale with the criteria in `references/architecture.md`, under Severity Mapping
 
-### Context files (scoped reviews)
+| Severity | Criteria | Examples |
+|---|---|---|
+| Highest | active bugs, security vulnerabilities, data loss | SQL injection, uncaught rejection, lying type predicate |
+| High | bugs waiting to happen, edge-case failures | missing null check, `as` hiding a mismatch, floating promise |
+| Medium | tech debt to clean up in context | `any` internally, missing exhaustive check, complex function |
+| Low | style, to improve when convenient | naming, missing `readonly`, verbose type |
 
-Analysis scope = diff file list. Reading scope = wider. Always include as read-only:
+severity_mapping:
+- every compiler output line is an error: the TypeScript compiler emits no warnings
+- map the linter severities conservatively: a project configures stylistic rules as `error`
 
-1. `tsconfig.json` (and extended configs)
-2. Files imported by scoped files (one level deep)
-3. Shared type definitions (`types.ts`, `*.d.ts`, `interfaces/`, `shared/`)
-4. `package.json`
+| Diagnostic | Severity |
+|---|---|
+| a compiler error naming a runtime hazard: null or undefined access, wrong argument shape, missing property | Highest |
+| a compiler hygiene error: unused local, unreachable code, implicit `any` on an internal | High |
+| a linter rule matching a checklist item in a reference file | the checklist severity |
+| a correctness-class linter rule: `no-floating-promises`, `no-misused-promises`, `no-unsafe-*` | High |
+| any other linter `error` | Medium |
+| any other linter `warning` or `info` | Low |
 
-Context files are NOT analyzed for issues.
-
-### Diff-aware severity boost (scoped modes only)
-
-Collect changed hunks:
-```bash
-git diff -U0 [appropriate range] -- '*.ts' '*.mts' '*.cts' | grep '^@@'
-```
-
-- Issue on **new/modified line**: boost severity +1 (Low→Medium, Medium→High, High→Highest)
-- Issue on **unchanged line**: keep original severity (pre-existing tech debt)
-- Mark boosted issues: `High [boosted, was Medium — new code]`
-- In `full` mode: no boost, all code treated equally
-
----
-
-## Phase 1 — Discovery (scan mode)
-
-1. **Detect domain set** from flags and phrases (see Domain Set section above).
-
-2. **Detect scope mode** from user's request. Build file list.
-   If scoped mode yields 0 files, ask whether to fall back to full.
-
-3. **Map project tree** — full structure regardless of scope.
-
-4. **Read `tsconfig.json`**. Load `references/tsconfig.md` and audit config flags.
-   In scoped modes: only flag config if `tsconfig.json` is in diff or if full review.
-   Monorepos: detect workspaces (`workspaces` in package.json, `pnpm-workspace.yaml`) and
-   multiple tsconfigs (`tsconfig.build.json`, per-package configs, `references`). Audit the
-   config that actually governs the files in scope; note which config applies in the summary.
-
-5. **Check for linter configs** — `eslint.config.*`, `.eslintrc.*`, `biome.json`, `deno.json`.
-
-6. **Read `package.json`** — TS version, dependencies, module type.
-
-7. **Identify entry points** — `index.ts`, `main.ts`, exports in `package.json`.
-
-8. **Collect context files** (scoped modes only).
-
-9. **Architecture discovery** (only if Architecture is in active domain set):
-   - Map module relationships: note circular imports, deep relative imports, barrel-file cycles, feature slices, public entry points.
-   - Check if `docs/adr/` exists — if so, scan it for architectural decisions before proposing changes. Skip silently if absent.
-   - Do NOT require `CONTEXT.md` or any domain-doc files.
-
-Discovery summary:
+discovery_summary:
 ```
 Project: <n>
 Scope: full / uncommitted / branch (vs <base>) / commits:<N>
@@ -197,61 +205,7 @@ Test runner: vitest / jest / mocha / node:test / none
 Files in scope: <N> .ts files (+ <M> context files)
 ```
 
----
-
-## Phase 2 — Diagnostics (scan mode)
-
-### 2a. TypeScript compiler
-
-```bash
-npx tsc --noEmit 2>&1 | head -200
-```
-
-All output lines are errors (tsc emits no warnings). Triage each error:
-- Indicates a runtime hazard (null/undefined access, wrong argument shape,
-  missing property) -> **Highest**
-- Hygiene errors (unused locals, unreachable code, implicit any on internals) -> **High**
-
-In scoped modes: run on full project, report only errors in scoped files.
-
-### 2b. Linter
-
-ESLint: `npx eslint [files] --format json 2>/dev/null | head -500`
-Biome: `npx biome check [files] --reporter json 2>/dev/null | head -500`
-
-Map linter severities conservatively — projects configure stylistic rules as `error`:
-- Rule matches a checklist item in a reference file -> use the checklist severity
-- Correctness-class rule (`no-floating-promises`, `no-misused-promises`,
-  `no-unsafe-*`) -> **High**
-- Anything else: `error` -> **Medium**, `warning` -> **Low**, `info` -> **Low**
-
-### 2c. LSP diagnostics (if available)
-
-Query TypeScript LSP via MCP if accessible. Merge with compiler output, deduplicate.
-
----
-
-## Phase 3 — Analysis (scan mode)
-
-Read the corresponding reference file before each analysis pass.
-
-Run only the agents whose domain is in the active domain set (see Domain Set section).
-
-| Agent | Reference file | Focus |
-|---|---|---|
-| Type Safety | `references/type-safety.md` | `any`, casts, `!`, exhaustiveness, generics |
-| Security | `references/security.md` | Injection, prototype pollution, ReDoS, path traversal |
-| Async Patterns | `references/async-patterns.md` | Floating promises, race conditions, error propagation |
-| Modernization | `references/modernization.md` | Outdated patterns vs TS 5.9+ idioms |
-| Code Quality | `references/code-quality.md` | Complexity, duplication, naming, dead code, testability |
-| Config | `references/tsconfig.md` | tsconfig.json flags and module setup |
-| Boundary Validation | `references/boundary-validation.md` | Runtime validation at system edges, DTO/domain separation |
-| Error Handling | `references/error-handling.md` | Silent failures, throw hygiene, failure design |
-| Dependency Hygiene | `references/dependency-hygiene.md` | package.json, versions, lockfiles, supply chain |
-| Architecture | `references/architecture.md` | Shallow modules, scattered concepts, coupling, dependency seams, layering |
-
-### Sub-agent template (Claude Code)
-
+subagent_template:
 ```
 You are a specialized TypeScript reviewer focused on [DOMAIN].
 Read the reference checklist: [REFERENCE_PATH]
@@ -271,37 +225,11 @@ Output JSONL, one object per line:
   "fix": "Concrete recommendation with code example",
   "auto_fixable": true|false,
   "in_diff": true|false,
-  "reference": "optional — omit unless allowed by the Evidence Protocol"
+  "reference": "optional — omit unless the forbidden_behaviors allow it"
 }
 ```
 
-### Sequential mode (no sub-agents)
-
-Go through each domain one at a time. Same JSON structure.
-
-### File batching
-
-- <= 20 scoped files: each agent reviews all files
-- > 20 files: split by directory, ensure shared types visible to all agents
-
----
-
-## Phase 4 — Report (scan mode)
-
-### Processing
-
-1. Apply severity boost (scoped modes only): `in_diff: true` -> boost +1 level.
-2. Deduplicate: same file + line + issue -> keep one.
-3. Merge overlapping: keep higher severity, note overlap. If two domains flag the same
-   file + line, merge into one entry attributing both categories — never emit twice.
-4. Consolidate patterns: 3+ identical issues -> one "Recurring Pattern" entry.
-5. Noise budget: if a single domain produces > 25 Medium/Low findings, keep its top 15
-   by severity and impact, consolidate the rest into Recurring Pattern entries with counts.
-
-### Report structure
-
-Write to `code-smells.md`:
-
+report_format:
 ````markdown
 # TypeScript Code Review Report
 
@@ -340,7 +268,6 @@ Write to `code-smells.md`:
 ## Pre-existing Issues (scoped modes only)
 
 ## Architecture Opportunities
-(only when Architecture is in active domain set AND at least one candidate found — omit entirely otherwise)
 
 ### TITLE — Severity
 
@@ -357,83 +284,6 @@ Write to `code-smells.md`:
 ---
 ````
 
-### Sorting
-
-1. By severity group, then category, then file path.
-2. In scoped modes: `in_diff=true` sorts before pre-existing.
-3. If > 15 issues in Medium/Low: show top 10, summarize rest in table.
-
----
-
-## Fix Mode
-
-**Read `references/fix-workflow.md` before executing.** It contains the complete
-fix protocol: test runner detection, baseline capture, file-by-file fix strategy,
-regression test writing, verification loop, and failure handling.
-
-Key principles:
-- Fix reads `code-smells.md` as its work plan (Terraform plan/apply pattern)
-- Fixes are applied file-by-file with `tsc --noEmit` after each file
-- Regression tests are written for each fix where testable
-- Full test suite runs after all fixes, compared against baseline
-- Max 5 verification iterations (tsc + lint + tests)
-- NEVER commit, NEVER stage — user reviews and decides
-- ALL fixed -> delete `code-smells.md` (clean slate)
-- Some remain -> keep `code-smells.md` as audit trail with BEFORE/AFTER for fixed issues,
-  status tags for failed/reverted/skipped, and original entries for untouched issues
-
----
-
-## Severity Scale
-
-| Level | Criteria | Examples |
-|---|---|---|
-| Highest | Active bugs, security vulns, data loss | SQL injection, uncaught rejection, lying type predicate |
-| High | Bugs waiting to happen, edge-case failures | Missing null check, `as` hiding mismatch, floating promise |
-| Medium | Tech debt to clean up in-context | `any` internally, missing exhaustive check, complex function |
-| Low | Style — improve when convenient | Naming, missing readonly, verbose type |
-
-In scoped modes: these are base severities before diff-aware boost.
-
-Architecture findings use the same severity scale with domain-specific criteria.
-See `references/architecture.md` → Severity Mapping for Architecture.
-
----
-
-## Evidence Protocol
-
-Every finding must survive verification before it enters the report:
-
-1. **Re-read before reporting.** After drafting a finding, re-read the exact lines in the
-   current file state. The `snippet` must appear verbatim at the stated `line` (±2 lines).
-   If it doesn't, re-locate or drop the finding.
-2. **Check the surrounding context.** If a guard, validation, type narrowing, or comment
-   within the enclosing function/module already handles the case, the finding is a false
-   positive — drop it, don't downgrade it.
-3. **Confidence gate.** Report only findings you can defend with the code in front of you.
-   If a finding depends on runtime behavior you cannot see (external input actually reaching
-   a sink, concurrent callers actually existing), either verify the data flow by reading the
-   callers, or mark the finding's problem statement with "if <condition>" and cap severity
-   at Medium.
-4. **References must be real.** The `reference` field is optional. Only cite
-   typescriptlang.org, developer.mozilla.org, nodejs.org, or a file path inside this skill.
-   Never construct URLs from memory for anything else — omit the field instead.
-5. **Convention override.** If a flagged non-High pattern appears consistently 5+ times
-   across the codebase, treat it as an intentional convention: downgrade one severity level
-   and report it once as a Recurring Pattern, not per occurrence.
-6. **Version gate.** Every finding that recommends newer syntax or APIs must state the
-   minimum TS/runtime version required, verified against the project's actual TS version,
-   `target`/`lib`, and runtime. Never recommend a feature the project cannot use.
-
----
-
-## Important Guidelines
-
-- **No framework checks.** Pure TypeScript only.
-- **No false positives from intentional patterns.** Suppression-directive severities are
-  owned by `references/type-safety.md` (Suppression Directives) — follow it, don't improvise.
-- **Respect project conventions.** Don't flag consistent patterns unless harmful.
-- **Be concrete.** Every issue needs a snippet and a fix recommendation.
-  "Consider refactoring" is not a valid fix.
-- **Don't flood with noise.** Consolidate identical issues into Recurring Patterns.
-- **Scoped mode focus.** Prioritize diff issues. Pre-existing = informational only.
+invocation:
+- any agent: state the request in plain language, for example `review my TypeScript code` or `fix the report`
+- add `--arch` or `--full` to that request to change the domain set
