@@ -73,6 +73,7 @@ domain_sets:
 | none | the 9 default domains: Type Safety, Security, Async Patterns, Modernization, Code Quality, Config, Boundary Validation, Error Handling, Dependency Hygiene |
 | `--arch`, review architecture, find refactoring opportunities, deepening review | Architecture only |
 | `--full`, full audit, full review, review everything | all 10 domains |
+| `--no-arch` | the 9 default domains, and it wins over any flag or phrase above |
 
 scope_modes:
 

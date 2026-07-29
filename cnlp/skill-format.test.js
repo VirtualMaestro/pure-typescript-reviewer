@@ -74,6 +74,17 @@ test('every checks: line is a pattern with a severity, or a marked qualifier', a
   }
 });
 
+const GUIDE_FILES = ['AGENTS.md']; // the guides an agent reads before it edits the corpus
+
+test('every guide conforms to profiles/guide.md', async () => {
+  const profile = await loadProfile('guide');
+  for (const name of GUIDE_FILES) {
+    const raw = await readFile(path.join(repoRoot, name), 'utf8');
+    const issues = bodyIssues(raw, profile).map((i) => `${name}:${i.line}: ${i.message}`);
+    assert.deepEqual(issues, []);
+  }
+});
+
 test('every profile conforms to profiles/profile.md', async () => {
   const profile = await loadProfile('profile');
   const dir = path.join(repoRoot, 'cnlp', 'profiles');

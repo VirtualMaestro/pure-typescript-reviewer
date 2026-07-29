@@ -22,12 +22,27 @@ Nothing else is scattered at the root.
 | `cnlp-format.md` | the standard: forms, line rules, lexicon, the profile contract | upstream — re-unpack to update |
 | `profiles/profile.md` | the profile of a profile | upstream |
 | `cnlp.js` | the checker: node builtins only, no dependencies | upstream |
-| `skill-format.test.js` | runs the checker over your skills | upstream |
+| `skill-format.test.js` | runs the checker over your skills | upstream, **edited here** |
 | `profiles/skill.md` | the skill profile: generic spine, empty vocabulary | **you** |
+| `profiles/reference.md` | the profile of `ts-reviewer/references/*.md` | **you** |
+| `profiles/guide.md` | the profile of `AGENTS.md` | **you** |
 | `quality-rules.md` | a rubric to prune, not a standard | **you** |
 
-Re-unpacking overwrites the upstream 4 and would overwrite your 2 as well, so commit your
-`profiles/skill.md` and `quality-rules.md` before you do it.
+**Re-unpacking would destroy work.** It overwrites the upstream 3 harmlessly, but
+`skill-format.test.js` is no longer stock: this repository added three tests to it — the
+`checks:` line contract, the guide, and the profiles themselves — on top of retargeting
+`SKILLS_DIR`. Commit everything under `cnlp/` before any re-unpack, and diff the test file
+afterwards rather than accepting it wholesale.
+
+The corpus each test walks is named by a constant at the top of that file:
+`SKILLS_DIR`, `REFERENCE_DIR`, `GUIDE_FILES`.
+
+## Status in this repository
+
+The migration is done: `ts-reviewer/SKILL.md`, all 11 files under `ts-reviewer/references/`,
+and `AGENTS.md` are in CNL-P, and `npm test` checks them. The order of work below is the
+one-time procedure that got them there — **to add or change a rule now, read `AGENTS.md` at
+the repository root instead.**
 
 ## Order of work
 
@@ -47,9 +62,13 @@ Re-unpacking overwrites the upstream 4 and would overwrite your 2 as well, so co
 node --test cnlp/skill-format.test.js
 ```
 
+`npm test` runs it alongside the typecheck, so a format violation fails the build.
+
 Set `SKILLS_DIR` at the top of that file to where **your** skills live, relative to the
 project root — it names the corpus to check, and it has nothing to do with where you moved
-`cnlp-migrate`. The check refuses to run with a clear message when the directory is missing.
+`cnlp-migrate`. Here it is `.`, since the skill sits at `ts-reviewer/` rather than under a
+`skills/` directory, and an entry counts as a skill when it holds a `SKILL.md`. The check
+refuses to run with a clear message when the directory is missing.
 
 **No Node in this repository?** Delete `cnlp/cnlp.js` and `cnlp/skill-format.test.js`, and set
 `enforcement:` in `cnlp/profiles/skill.md` to say the profile is held by review against the

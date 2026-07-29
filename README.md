@@ -92,6 +92,7 @@ By default, only the nine core domains run. Use flags to control which domains a
 | *(none)* | Type Safety, Security, Async, Modernization, Code Quality, Config, Boundary Validation, Error Handling, Dependency Hygiene |
 | `--arch` | Architecture only (shallow modules, coupling, dependency direction, seams) |
 | `--full` | All ten domains |
+| `--no-arch` | The nine core domains — overrides `--arch`, `--full`, and any phrase that would enable architecture |
 
 Examples:
 
@@ -175,10 +176,23 @@ Architecture findings use the same scale. Each candidate also carries a **Fixabi
 ## Project Structure
 
 ```
+AGENTS.md                             # How to edit the review rules — read before changing anything below
+CLAUDE.md                             # Pointer to AGENTS.md, picked up automatically by Claude Code
+
 src/                                  # npm/npx installer source
 ├── cli.ts                            # CLI entrypoint and provider prompt
 ├── prompt.ts                         # raw-mode keyboard multi-select
 └── paths.ts                          # target directories and skill asset loading
+
+cnlp/                                 # the CNL-P format the skill files are written in
+├── cnlp-format.md                    # the standard: forms, line rules, lexicon
+├── cnlp.js                           # the checker — Node builtins only, no dependencies
+├── skill-format.test.js              # the conformance test, run by `npm test`
+└── profiles/                         # what each kind of document may contain
+    ├── skill.md                      #   → ts-reviewer/SKILL.md
+    ├── reference.md                  #   → ts-reviewer/references/*.md
+    ├── guide.md                      #   → AGENTS.md
+    └── profile.md                    #   → the profiles themselves
 
 ts-reviewer/
 ├── SKILL.md                          # Main skill file — mode routing, workflow orchestration
@@ -199,6 +213,26 @@ ts-reviewer/
 **SKILL.md** is the orchestrator — it routes between scan/fix/auto modes, detects domain flags (`--arch`, `--full`), defines scope detection, severity scale, and report format.
 
 **Reference files** contain the detailed checklists and protocols. Each analysis agent reads only the reference file relevant to its domain, keeping context focused. Architecture analysis is opt-in and loaded only when the domain is active.
+
+## Editing the Rules
+
+As of 2.0.0, `SKILL.md` and every reference file are written in **CNL-P** — a block-structured format an agent reads as instructions rather than prose. One rule per line, one term per concept, no headings, a hard 250-character line limit.
+
+A check line looks like this:
+
+```
+- injection — `eval()` and `new Function()` executing a dynamic string: Highest, use a lookup table, a strategy, or a safe parser
+```
+
+The format is enforced, not merely recommended:
+
+```bash
+npm test        # typecheck + 5 conformance tests
+```
+
+The test catches a check line that lost its severity, a block the profile does not declare, blocks out of order, a banned vague word, and a line over the limit — each reported with its file and line number.
+
+**Before adding or changing a rule, read [`AGENTS.md`](AGENTS.md).** It states which file owns which domain, the shape of a check line, the severity scale, which block takes what, and the line rules. Claude Code picks this up on its own through `CLAUDE.md`; for another agent, point it at `AGENTS.md` explicitly.
 
 ## How It Works Under the Hood
 
