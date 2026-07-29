@@ -32,7 +32,7 @@ checks:
 - cancellation — a long async operation with no `AbortController` or `AbortSignal` support: Low internally, Medium on a public API
 - cancellation — an `AbortSignal` accepted and never checked: Medium
 - cancellation — a timer, listener, or stream left uncleaned on cancellation: High
-- promise utilities — a manual promise with separate resolve and reject variables where `Promise.withResolvers()` applies: Low, and flag it only when the target is ES2024+ or a polyfill is present
+- promise utilities — a manual promise with separate resolve and reject variables where `Promise.withResolvers()` applies: Low, use it
 - promise anti-patterns — `new Promise()` wrapping an operation that is already async: Low, use async and await
 - promise anti-patterns — `async function() { return await bar(); }` outside a try block: Low, the `await` is unnecessary
 - promise anti-patterns — `await` and `.then()` chains mixed in 1 function: Low

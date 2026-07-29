@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-import { scaffoldTsReviewerSkill } from "./index";
-import { multiSelect } from "./prompt";
-import { AI_PROVIDERS, skillTargetDir, type AiProvider } from "./paths";
+import { scaffoldTsReviewerSkill } from "./index.js";
+import { multiSelect } from "./prompt.js";
+import { AI_PROVIDERS, skillTargetDir, type AiProvider } from "./paths.js";
 
 const SKILL_NAME = "ts-reviewer";
-const TYPESCRIPT_VERSION = "5.9+";
+const TARGET_STACK = "TypeScript 5.9.x, ES2024, Node 24";
 
 function printHelp() {
   process.stdout.write(
@@ -35,7 +35,7 @@ async function main() {
     [
       "TypeScript Code Reviewer\n",
       `Checks: type safety, security, async patterns, boundary validation, error handling, modernization, code quality, tsconfig, dependency hygiene\n`,
-      `Target TypeScript: ${TYPESCRIPT_VERSION}\n`,
+      `Target stack: ${TARGET_STACK}\n`,
       "\n",
     ].join("")
   );

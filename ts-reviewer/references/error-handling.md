@@ -13,7 +13,7 @@ checks:
 - silent failures — fire-and-forget cleanup, `void cleanup()`, whose failure corrupts the next run: Medium
 - throw hygiene — throwing a non-Error value, a string or an object: Medium, stack traces and `instanceof` both depend on a real Error
 - throw hygiene — a custom error class that does not extend `Error`: Medium
-- throw hygiene — a rethrow discarding the original, `catch (e) { throw new Error(msg) }`: Medium, use `throw new Error(msg, { cause: e })`, ES2022
+- throw hygiene — a rethrow discarding the original, `catch (e) { throw new Error(msg) }`: Medium, use `throw new Error(msg, { cause: e })`
 - throw hygiene — an error message with no operational context, naming neither the operation nor the input id: Low
 - catch discipline — a broad `catch` around a large block treating a `TypeError` or `ReferenceError` as an expected failure: Medium, it hides a bug as a handled condition
 - catch discipline — fix: a broad catch, by narrowing the try to the failing operation and rethrowing the unexpected error types

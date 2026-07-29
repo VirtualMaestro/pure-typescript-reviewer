@@ -27,7 +27,7 @@ File: src/api/handler.ts
   - Line 55:  [Medium] Missing exhaustive check — type-safety
 ```
 4. detect the test runner through the signals in `test_runners`, in the order listed there
-5. detect the test file convention: `*.test.ts` against `*.spec.ts`, a `__tests__/` directory against co-location, and the framework imports, `describe` and `it` against `test` against `Deno.test`
+5. detect the test file convention: `*.test.ts` against `*.spec.ts`, a `__tests__/` directory against co-location, and the framework imports, `describe` and `it` against `test`
 6. warn the operator with "No test runner detected. Fixes will be applied without test verification." when no test infrastructure is found, skip every test step, and still run the compiler and the linter
 7. run the full test suite before any change, and write the log to the OS temp directory, or to the project root when temp is unavailable
 ```bash
@@ -176,9 +176,7 @@ test_runners:
 | `vitest.config.*` exists | vitest | `npx vitest run` |
 | `jest.config.*` exists, or `"jest"` is in `package.json` | jest | `npx jest` |
 | `*.test.ts` or `*.spec.ts` plus `"mocha"` in the devDependencies | mocha | `npx mocha` |
-| `deno.json` exists | deno | `deno test` |
-| `bun.lockb` or `bun.lock` exists | bun | `bun test` |
-| Node.js 18+ and `*.test.ts` files | node:test | `node --test` |
+| `*.test.ts` files and no signal above | node:test | `node --test` |
 
 ```bash
 npx vitest run                          # run all tests once
@@ -194,10 +192,4 @@ npx mocha --reporter json               # JSON output
 
 node --test                             # run all *.test.* files
 node --test --test-reporter spec        # detailed output
-
-deno test                               # run all
-deno test --filter "auth"               # filter
-
-bun test                                # run all
-bun test --bail                         # stop on first failure
 ```

@@ -1,11 +1,11 @@
 import path from "node:path";
 
-import { listSkillAssetTemplates } from "./paths";
-import { readMeta, writeMeta, type ScaffoldMeta } from "./meta";
-import { sha256Hex } from "./hash";
-import { ensureDir, readFileIfExists, atomicWriteFile } from "./io";
-import { decideUpdate } from "./updatePolicy";
-import { findAvailableIncomingPath } from "./incoming";
+import { listSkillAssetTemplates } from "./paths.js";
+import { readMeta, writeMeta, type ScaffoldMeta } from "./meta.js";
+import { sha256Hex } from "./hash.js";
+import { ensureDir, readFileIfExists, atomicWriteFile } from "./io.js";
+import { decideUpdate } from "./updatePolicy.js";
+import { findAvailableIncomingPath } from "./incoming.js";
 
 export type ScaffoldAction = "WROTE" | "UPDATED" | "SKIPPED" | "CONFLICT";
 

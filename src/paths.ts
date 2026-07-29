@@ -25,7 +25,7 @@ export type AssetTemplate = { fileName: string; content: string };
 
 function packageRootDir(): string {
   // dist/* at runtime; src/* in dev. In both cases, package root is one level up.
-  return path.resolve(__dirname, "..");
+  return path.resolve(import.meta.dirname, "..");
 }
 
 export function skillAssetsDir(skillName: string): string {

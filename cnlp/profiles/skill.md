@@ -58,6 +58,7 @@ sections:
   required: yes
 
 custom_sections:
+- target_stack
 - run_modes
 - domain_sets
 - scope_modes

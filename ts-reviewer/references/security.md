@@ -3,7 +3,7 @@ purpose:
 - load it before the Security analysis pass
 
 scope:
-- patterns that stay dangerous whatever the runtime: Node.js, Deno, Bun, the browser
+- the patterns that stay dangerous under Node 24
 - a framework-specific issue is out of scope: the review covers pure TypeScript
 
 read_first:
@@ -25,6 +25,7 @@ checks:
 - ssrf — fix: an unallowlisted outbound URL, by parsing it with `new URL()`, checking the protocol is http or https, checking the host against an explicit allowlist, and rejecting redirects into internal ranges
 - dom sinks — `element.innerHTML = x`, `insertAdjacentHTML`, or `document.write` where `x` has any non-literal part: High, use `textContent`, or a sanitizer only when HTML is genuinely required
 - dom sinks — `location.href = x` or `window.open(x)` from external input: Medium, a `javascript:` URL runs, so validate the protocol with `new URL()`
+- dom sinks — note: the 2 checks above apply only in a file whose `lib` carries `dom`
 - prototype pollution — `Object.assign(target, untrustedSource)` where the source can carry `__proto__`: High, filter the keys or build the target with `Object.create(null)`
 - prototype pollution — note: `structuredClone()` is not a fix here: it copies an own `__proto__` key through, and the `Object.assign` that follows still walks the setter
 - prototype pollution — a recursive merge with no guard on `__proto__`, `constructor`, and `prototype`: High

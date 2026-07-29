@@ -2,7 +2,7 @@
 
 An AI skill for deep code review and auto-fix of pure TypeScript codebases. Finds bugs, type safety holes, security vulnerabilities, async anti-patterns, outdated practices, and code smells — then fixes them with regression tests and verification.
 
-Built for **TypeScript 5.9+** without any framework-specific checks (no React, Vue, Angular, etc.).
+Built for one fixed stack — **TypeScript 5.9.x, ES2024, Node 24** — without any framework-specific checks (no React, Vue, Angular, etc.). Anything below the stack is a finding, anything above it is never recommended.
 
 ## What It Does
 
@@ -44,7 +44,7 @@ The installer prints a short summary before installation:
 ```text
 TypeScript Code Reviewer
 Checks: type safety, security, async patterns, boundary validation, error handling, modernization, code quality, tsconfig, dependency hygiene
-Target TypeScript: 5.9+
+Target stack: TypeScript 5.9.x, ES2024, Node 24
 ```
 
 Then it asks which AI agents to install for. Use Up/Down arrows to move, Space to toggle, and Enter to confirm.
@@ -202,7 +202,7 @@ ts-reviewer/
     ├── async-patterns.md             # Checklist: floating promises, races, timeouts, retries, cancellation
     ├── boundary-validation.md        # Checklist: runtime validation at edges, DTO/domain separation
     ├── error-handling.md             # Checklist: silent failures, throw hygiene, failure design
-    ├── modernization.md              # Checklist: TS 5.9+ idioms, ??/?. , satisfies, using, toSorted
+    ├── modernization.md              # Checklist: patterns below the stack, ??/?. , satisfies, using, toSorted
     ├── code-quality.md               # Checklist: complexity, dead code, debug artifacts, testability
     ├── tsconfig.md                   # Checklist: strict flags, target/lib, module resolution, deprecated
     ├── dependency-hygiene.md         # Checklist: lockfiles, versions, npm audit, dependency choice
@@ -266,9 +266,9 @@ The test catches a check line that lost its severity, a block the profile does n
 
 ## Requirements
 
-- TypeScript 5.9+ project
+- TypeScript 5.9.x project targeting ES2024 on Node 24
 - Git repository (for scoped modes and safe revert during fix)
-- Node.js with `npx` available (for tsc, linter)
+- Node 24 with `npx` available (for tsc, linter)
 - Claude Code (recommended) or any Claude interface with skill support
 
 ## License
