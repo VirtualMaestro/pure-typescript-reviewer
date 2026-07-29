@@ -1,148 +1,66 @@
-# Type Safety Checklist
+purpose:
+- name the type-safety patterns a review flags, with the severity of each
+- load it before the Type Safety analysis pass
 
-## Suppression Directives
+checks:
+- suppression directives — `// @ts-ignore` with no explanation: Medium, recommend `// @ts-expect-error` with a comment saying why the error is expected
+- suppression directives — a `// @ts-expect-error` that suppresses no error: Low, remove it, it masks nothing
+- suppression directives — either directive hiding a type-safety issue that can be fixed properly: Medium, address the root cause instead
+- any abuse — explicit `any` in a parameter, a return type, or a variable declaration: Medium internally, High on a public API or an exported function
+- any abuse — implicit `any` from a missing annotation the compiler cannot infer: Medium
+- any abuse — `any[]` where a typed array or a generic fits: Medium
+- any abuse — `Record<string, any>`: Medium, use `Record<string, unknown>` or a named interface
+- any abuse — the `Function` type: High, it bypasses all type checking on the arguments and the return value, use a specific signature
+- any abuse — the lowercase `object` type: Low, it is too wide, prefer a specific interface
+- unsafe casts — `as Type` narrowing a wider type with no validation: High, a runtime mismatch reaches production unchecked
+- unsafe casts — fix: a narrowing cast, with a type guard, `satisfies`, or a validation function such as Zod, io-ts, or a hand-written one
+- unsafe casts — `as unknown as Type` or `as any as Type`: High, a double cast defeats both checks
+- unsafe casts — `<Type>value`, the angle-bracket form: Medium, it carries the same risk as `as` and conflicts with JSX, prefer `as` and flag the safety issue under it
+- unknown discipline — `unknown` narrowed with `as` instead of a runtime check: High, that is `any` with extra steps
+- unknown discipline — fix: an unnarrowed `unknown`, with a `typeof`, `instanceof`, or `in` guard, or with schema validation
+- unknown discipline — `catch (e)` read through `(e as Error).message`: Medium, use `e instanceof Error ? e.message : String(e)`
+- unknown discipline — a public API returning `unknown` where a generic or a discriminated result type is derivable: Medium, it forces every caller to cast
+- structural typing traps — `{}` as an annotation: Medium, it means any non-nullish value, use `Record<string, unknown>`, `object`, or a concrete shape
+- structural typing traps — the boxed primitives `String`, `Number`, `Boolean`, `Object` in an annotation: Medium, use the lowercase primitives
+- structural typing traps — method shorthand in an interface meant as a strict callback: Low internally, Medium on a public API where a wrong-argument implementation would compile
+- structural typing traps — note: `interface H { handle(e: E): void }` stays bivariant under `strictFunctionTypes`, and `handle: (e: E) => void` is checked contravariantly
+- branded types — several domain identifiers sharing 1 primitive type and crossing module boundaries: Low, a mix-up compiles silently, so suggest it and do not insist
+- branded types — note: flag a missing brand only when the codebase shows 3+ same-primitive identifiers crossing function boundaries, and fix it with a brand plus a constructor function
+```typescript
+type UserId = string & { readonly __brand: 'UserId' };
+```
+- non-null assertions — `value!` where `value` can genuinely be `null` or `undefined` at runtime: High
+- non-null assertions — `value!` right after a check that already narrowed it: Low, redundant rather than harmful, drop the `!`
+- non-null assertions — `document.getElementById('x')!`: Medium, acceptable in DOM code with known ids, flag it in library or server-side code
+- exhaustiveness — a `switch` on a discriminated union with no `default: assertNever(x)`: High, a new variant of the union raises no compile error
+```typescript
+function assertNever(x: never): never {
+  throw new Error(`Unexpected value: ${x}`);
+}
+```
+- exhaustiveness — an `if`/`else if` chain over a union with no final `else` covering the rest: Medium
+- generics — `function foo<T>(x: T): T` where `T` is never constrained and the generic relation is unused: Low
+- generics — `<T>` where `<T extends SomeBase>` is needed: Medium
+- generics — a generic constrained down to 1 concrete type: Low, use that type
+- generics — a generic default that hides complexity, `<T = any>`: Medium
+- discriminated unions — a union that wants a discriminant and has no shared literal field: Medium
+- discriminated unions — a discriminant typed `string` instead of a literal type: Medium
+- discriminated unions — boolean flags modelling mutually exclusive states, `{ loading: boolean; error?: E; data?: T }`: Medium, the impossible combinations are representable
+- discriminated unions — fix: flag soup, with `{ status: 'loading' } | { status: 'error'; error: E } | { status: 'ready'; data: T }`
+- index signatures — `obj[key]` with no check that `key` exists: Medium when `noUncheckedIndexedAccess` is off
+- index signatures — `in` or `hasOwnProperty` used with no narrowing: Medium
+- return types — an exported function with no explicit return type: Medium
+- return types — a function returning a different type per branch with no union return type: High, the inferred type can be wider than intended
+- type predicates — a type-guard function returning `boolean` instead of `x is Type`: Low, it works and loses the narrowing at the call site
+- type predicates — an assertion function, `asserts x is Type`, that does not throw on failure: High, the compiler trusts the assertion
+- type predicates — a type predicate that lies, where the runtime check does not match the declared narrowing: Highest, it causes silent type mismatches
+- utility types — a hand-rolled type duplicating `Partial`, `Required`, `Pick`, `Omit`, `Record`, `Readonly`, `ReturnType`, `Parameters`, `Awaited`, or `NoInfer`: Low
+- utility types — `Omit` with a key absent from the source type: Low, the compiler allows it, and it marks a typo or stale code
+- readonly posture — a mutable array or object in an exported signature the function never mutates: Low, `readonly T[]` and `Readonly<T>` state the contract and accept more inputs
+- type-level complexity — a conditional type deeper than 2 levels, or a mapped type with a nested `infer`, used in 1 place: Low, inline or simplify it to a union or overloads
+- type-level complexity — note: keep the type-level machinery only when it removes real duplication: the next reader has to decode it
 
-- `// @ts-ignore` without explanation. Severity: **Medium**.
-  Recommend `// @ts-expect-error` with a comment explaining why the error is expected.
-- `// @ts-expect-error` that no longer suppresses any error (stale). Severity: **Low**.
-  The directive should be removed — it was masking nothing.
-- `// @ts-ignore` or `// @ts-expect-error` used to hide a type safety issue that could
-  be fixed properly. Severity: **Medium**. Fix: address the root cause instead.
-
-## `any` Abuse
-
-- Explicit `any` in function parameters, return types, or variable declarations.
-  Severity: **Medium** (internal code), **High** (public API / exported functions).
-- Implicit `any` from missing type annotations where TS cannot infer.
-  Severity: **Medium**.
-- `any[]` where a typed array or generic is possible. Severity: **Medium**.
-- `Record<string, any>` — usually should be `Record<string, unknown>` or a proper interface.
-  Severity: **Medium**.
-- `Function` type — almost always wrong. Use a specific signature. Severity: **High**.
-  `Function` bypasses all type checking on arguments and return value.
-- `object` type (lowercase) — too broad, prefer a specific interface. Severity: **Low**.
-
-## Unsafe Casts
-
-- `as Type` that narrows a wider type without validation.
-  Severity: **High** — a runtime mismatch is a bug waiting to happen.
-  Fix: use a type guard, `satisfies`, or a validation function (e.g., Zod, io-ts, hand-written).
-- `as unknown as Type` or `as any as Type` — double cast is almost always a red flag.
-  Severity: **High**.
-- `<Type>value` (angle-bracket cast) — same issue as `as`, plus it conflicts with JSX.
-  Severity: **Medium** (prefer `as` syntax, but still flag the underlying safety issue).
-- `as const` used correctly is NOT an issue — do not flag it.
-
-## `unknown` Discipline
-
-- `unknown` narrowed with `as` instead of a runtime check. Severity: **High** — this is
-  `any` with extra steps. Fix: `typeof` / `instanceof` / `in` guards, or schema validation.
-- `catch (e)` handled via `(e as Error).message`. Severity: **Medium**.
-  Fix: `e instanceof Error ? e.message : String(e)`.
-- Public API returning `unknown` where a generic or a discriminated result type is
-  derivable — forces every caller to cast. Severity: **Medium**.
-
-## Structural Typing Traps
-
-- `{}` as a type annotation — means "any non-nullish value", not "empty object" or
-  "plain object". Severity: **Medium**. Fix: `Record<string, unknown>`, `object`, or a
-  concrete shape.
-- Boxed primitive types `String`, `Number`, `Boolean`, `Object` in annotations.
-  Severity: **Medium**. Fix: lowercase primitives.
-- Method shorthand in interfaces intended as strict callbacks:
-  `interface H { handle(e: E): void }` is bivariant even under `strictFunctionTypes`;
-  property syntax `handle: (e: E) => void` is checked contravariantly.
-  Severity: **Low** internal, **Medium** on public APIs where wrong-argument
-  implementations would compile.
-
-## Branded Types (suggestion-level)
-
-- Multiple domain identifiers sharing one primitive type (`userId: string`,
-  `orderId: string`) passed across module boundaries — mix-ups compile silently.
-  Severity: **Low** (suggest, don't insist). Fix: brand the types:
-  `type UserId = string & { readonly __brand: 'UserId' }` plus a constructor function.
-  Only flag when the codebase shows 3+ same-primitive IDs crossing function boundaries.
-
-## Non-null Assertions (`!`)
-
-- `value!` where `value` could genuinely be `null | undefined` at runtime.
-  Severity: **High**.
-- `value!` right after a check that already narrowed the type — redundant, not harmful.
-  Severity: **Low** (remove the `!`, the narrowing already handles it).
-- `document.getElementById('x')!` — acceptable in DOM code with known IDs,
-  but flag if it's in a library or server-side code. Severity: **Medium**.
-
-## Exhaustiveness
-
-- `switch` on a discriminated union missing a `default: assertNever(x)` or equivalent.
-  Severity: **High** — adding a new variant to the union won't cause a compile error.
-  Fix: add an exhaustive check:
-  ```typescript
-  function assertNever(x: never): never {
-    throw new Error(`Unexpected value: ${x}`);
-  }
-  ```
-- `if/else if` chains on union types without a final `else` that handles the rest.
-  Severity: **Medium**.
-
-## Generics
-
-- Unnecessary generics — `function foo<T>(x: T): T` where `T` is never constrained
-  and the function doesn't actually use the generic relationship. Severity: **Low**.
-- Missing constraints — `<T>` where `<T extends SomeBase>` is needed. Severity: **Medium**.
-- Over-constrained generics that accept only one concrete type — just use that type.
-  Severity: **Low**.
-- Generic with default that hides complexity: `<T = any>`. Severity: **Medium**.
-
-## Discriminated Unions
-
-- Union types that should be discriminated but aren't (no shared literal field).
-  Severity: **Medium**.
-- Discriminant field is `string` instead of a literal type. Severity: **Medium**.
-- Boolean flag soup modeling mutually exclusive states
-  (`{ loading: boolean; error?: E; data?: T }` allows impossible combinations).
-  Severity: **Medium**. Fix: discriminated union —
-  `{ status: 'loading' } | { status: 'error'; error: E } | { status: 'ready'; data: T }`.
-
-## Index Signatures
-
-- `obj[key]` without checking if `key` exists — especially dangerous
-  when `noUncheckedIndexedAccess` is disabled. Severity: **Medium** if the flag is off.
-- Using `in` operator or `hasOwnProperty` without narrowing. Severity: **Medium**.
-
-## Return Types
-
-- Public/exported functions missing explicit return types. Severity: **Medium**.
-  (Internal functions can rely on inference — don't flag those unless the inferred type is `any`.)
-- Functions that return different types in different branches without a union return type.
-  Severity: **High** — the inferred type might be wider than intended.
-
-## Type Predicates and Assertion Functions
-
-- Type guard functions that return `boolean` instead of `x is Type`.
-  Severity: **Low** (works but loses narrowing at call site).
-- Assertion functions (`asserts x is Type`) that don't actually throw on failure.
-  Severity: **High** — the compiler trusts the assertion.
-- Type predicates that lie — the runtime check doesn't match the declared narrowing.
-  Severity: **Highest** — this silently causes type mismatches.
-
-## Utility Types
-
-- Hand-rolled types that duplicate built-in utility types
-  (`Partial`, `Required`, `Pick`, `Omit`, `Record`, `Readonly`, `ReturnType`,
-  `Parameters`, `Awaited`, `NoInfer`). Severity: **Low**.
-- `Omit` with a key that doesn't exist in the source type — TS silently allows this,
-  which may indicate a typo or stale code. Severity: **Low**.
-
-## Readonly Posture
-
-- Mutable arrays/objects in exported signatures where the function never mutates them —
-  `readonly T[]` / `Readonly<T>` communicates the contract and accepts more inputs.
-  Severity: **Low**. Public APIs only; don't flag internals.
-
-## Type-level Complexity
-
-- Conditional type > 2 levels deep, or mapped type with nested `infer`, used in only one
-  place. Severity: **Low**. Fix: inline or simplify to a union/overloads unless the
-  type-level machinery removes real duplication. Clever types are a maintenance cost —
-  the next reader must decode them.
+non_findings:
+- `as const` used correctly
+- an internal function relying on return-type inference, unless the inferred type is `any`
+- readonly posture on an internal signature: it is a public-API check

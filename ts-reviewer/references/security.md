@@ -1,118 +1,55 @@
-# Security Checklist
+purpose:
+- name the security patterns a review flags, with the severity of each
+- load it before the Security analysis pass
 
-For pure TypeScript code — no framework-specific issues.
-Focus on patterns dangerous regardless of runtime (Node.js, Deno, Bun, browser).
+scope:
+- patterns that stay dangerous whatever the runtime: Node.js, Deno, Bun, the browser
+- a framework-specific issue is out of scope: the review covers pure TypeScript
 
-## Trust Boundaries — read first
+read_first:
+- every check below assumes the dangerous value is attacker-influenced, so trace where the value comes from before flagging it
+- untrusted source: a request body, header, or URL, a CLI argument, an environment variable in a multi-tenant context
+- untrusted source: file contents from a user-writable path, a database field ever written from user input, a queue or socket message, a third-party API response
+- trusted source: a literal, a constant or config file of this codebase, a value a schema already validated at the boundary, and name where it was validated
+- a value that is provably static or internal downgrades the finding to Medium with the reason it still matters, or drops it when the sink is safe by construction
+- taint survives transformation: concatenation, template literals, `JSON.parse`, and property access on a parsed object all preserve it
+- report at the listed severity when the source cannot be traced in the available files, and state the assumption: "assumes `x` can carry external input"
 
-Every item below assumes the dangerous value is *attacker-influenced*. Before flagging,
-trace where the value comes from:
+checks:
+- injection — `eval()` and `new Function()` executing a dynamic string: Highest, use a lookup table, a strategy, or a safe parser
+- injection — a template literal inside a shell command, `exec(\`cmd ${userInput}\`)`: Highest, use `execFile` with an argument array
+- injection — a dynamic `import()` with a user-controlled path: Highest, allow only a fixed list of module paths
+- injection — SQL or NoSQL built by string concatenation: Highest, use parameterized queries
+- injection — `new RegExp(userInput)`: High, it carries both ReDoS and injection, escape the input or use a static pattern
+- ssrf — `fetch()`, `http.request()`, or any HTTP client called with a URL built from external input and no protocol and host allowlist: High
+- ssrf — fix: an unallowlisted outbound URL, by parsing it with `new URL()`, checking the protocol is http or https, checking the host against an explicit allowlist, and rejecting redirects into internal ranges
+- dom sinks — `element.innerHTML = x`, `insertAdjacentHTML`, or `document.write` where `x` has any non-literal part: High, use `textContent`, or a sanitizer only when HTML is genuinely required
+- dom sinks — `location.href = x` or `window.open(x)` from external input: Medium, a `javascript:` URL runs, so validate the protocol with `new URL()`
+- prototype pollution — `Object.assign(target, untrustedSource)` where the source can carry `__proto__`: High, filter the keys or build the target with `Object.create(null)`
+- prototype pollution — note: `structuredClone()` is not a fix here: it copies an own `__proto__` key through, and the `Object.assign` that follows still walks the setter
+- prototype pollution — a recursive merge with no guard on `__proto__`, `constructor`, and `prototype`: High
+- prototype pollution — `obj[dynamicKey] = value` with an externally supplied key: High, validate the key or use a `Map`
+- unsafe deserialization — `JSON.parse(untrusted)` with no schema validation: Medium, validate after parsing
+- unsafe deserialization — note: `JSON.parse` executes no code, so the risk is malformed data bypassing business logic, not injection
+- unsafe deserialization — YAML or TOML from an untrusted source with no safe parser: High
+- path traversal — a file operation on a user-supplied path with no normalization: Highest, use `path.resolve()` and verify the result is inside the base directory
+- path traversal — `path.join(base, userInput)`: Highest, it does not stop `..`, so resolve the full path and check containment
+- path traversal — a containment check written as `resolved.startsWith(base)`: High, `/base-evil/x` passes it for `/base`, so test `path.relative(base, resolved)` instead and reject a result that is absolute or starts with `..`
+- secrets — a hardcoded API key, token, or password in source: Highest
+- secrets — a secret written to the console: High
+- secrets — a secret carried in an error message: High
+- cryptography — `Math.random()` for a security-sensitive value: Highest, use `crypto.randomUUID()` or `crypto.getRandomValues()`
+- cryptography — a hardcoded IV, salt, or seed: High
+- cryptography — a deprecated algorithm, MD5 or SHA1 for security, or DES: High
+- timing attacks — `===` comparing 2 secrets, tokens, MACs, or password hashes under verification: High, use `crypto.timingSafeEqual()`
+- unsafe memory — `Buffer.allocUnsafe()` where the buffer is not immediately and fully overwritten: High, it leaks previous memory contents, use `Buffer.alloc()`
+- denial of service — ReDoS from nested quantifiers, `(a+)+` or `(a|a)+`: High
+- denial of service — data processed with no size limit: Medium
+- denial of service — a recursive function with no depth limit on untrusted input: High
+- information disclosure — an error message exposing internals to an end user: Medium
+- information disclosure — `console.log` or `console.debug` carrying sensitive data in production: Medium
+- race conditions — a time-of-check to time-of-use gap in a file operation: High
+- race conditions — an auth check separated from the action it protects by an `await`: High
 
-**Untrusted sources:** network request bodies/headers/URLs, CLI arguments, environment
-variables in multi-tenant contexts, file contents from user-writable paths, database
-fields that were ever written from user input, messages from queues/sockets, anything
-returned by a third-party API.
-
-**Trusted sources:** literals, values from this codebase's own constants/config files,
-values already validated by a schema at the boundary (note where).
-
-Rules:
-- Value provably static/internal -> downgrade the finding to **Medium** and say why it
-  still matters (fragile pattern), or drop it if the sink is safe by construction.
-- Taint survives transformations: concatenation, template literals, `JSON.parse`,
-  property access on a parsed object all preserve untrustedness.
-- If you cannot trace the source within the files available, report at the listed
-  severity but state the assumption: "assumes `x` can carry external input".
-
-## Injection
-
-- **`eval()` and `new Function()`** — executing dynamic strings.
-  Severity: **Highest**. Fix: lookup table, strategy pattern, safe parser.
-- **Template literals in shell commands** — `exec(\`cmd ${userInput}\`)`.
-  Severity: **Highest**. Fix: `execFile` with argument arrays.
-- **Dynamic `import()` with user-controlled paths**.
-  Severity: **Highest**. Fix: whitelist allowed module paths.
-- **SQL/NoSQL injection** — string concatenation in queries.
-  Severity: **Highest**. Fix: parameterized queries.
-- **RegExp from user input** — `new RegExp(userInput)`.
-  Severity: **High** (ReDoS + injection). Fix: escape input or use static regex.
-
-## SSRF
-
-- `fetch()` / `http.request()` / HTTP client call with a URL built from external input,
-  without a protocol + host allowlist. Severity: **High**. Fix: parse with `new URL()`,
-  check protocol is http(s) and host against an explicit allowlist; reject redirects to
-  internal ranges.
-
-## DOM Sinks (browser code)
-
-- `element.innerHTML = x`, `insertAdjacentHTML`, `document.write` where `x` has any
-  non-literal part. Severity: **High**. Fix: `textContent` for text; a sanitizer
-  (DOMPurify) only when HTML is genuinely required.
-- `location.href = x` / `window.open(x)` from external input — `javascript:` URL risk.
-  Severity: **Medium**. Fix: validate protocol via `new URL()`.
-
-## Prototype Pollution
-
-- `Object.assign(target, untrustedSource)` where source may contain `__proto__`.
-  Severity: **High**. Fix: `structuredClone()`, filter keys, or `Object.create(null)`.
-- Recursive merge without guarding `__proto__`, `constructor`, `prototype`.
-  Severity: **High**.
-- `obj[dynamicKey] = value` with external input key.
-  Severity: **High**. Fix: validate key or use `Map`.
-
-## Unsafe Deserialization
-
-- `JSON.parse(untrusted)` without schema validation.
-  Severity: **Medium**. Fix: validate with Zod/io-ts/ajv after parsing.
-  Note: `JSON.parse` itself does not execute arbitrary code — the risk is accepting
-  malformed data that bypasses business logic, not injection.
-- YAML/TOML from untrusted sources without safe parser. Severity: **High**.
-
-## Path Traversal
-
-- File operations with user paths without normalization.
-  Severity: **Highest**. Fix: `path.resolve()` + verify within base dir.
-- `path.join(base, userInput)` — does NOT prevent `..` traversal.
-  Severity: **Highest**. Fix: resolve full path, check `startsWith(baseDir)`.
-
-## Secrets and Credentials
-
-- Hardcoded API keys, tokens, passwords in source. Severity: **Highest**.
-- Secrets logged to console. Severity: **High**.
-- Secrets in error messages. Severity: **High**.
-
-## Cryptography
-
-- `Math.random()` for security-sensitive values. Severity: **Highest**.
-  Fix: `crypto.randomUUID()`, `crypto.getRandomValues()`.
-- Hardcoded IVs, salts, seeds. Severity: **High**.
-- Deprecated algorithms (MD5, SHA1 for security, DES). Severity: **High**.
-
-## Timing Attacks
-
-- String comparison using `===` where both sides are secrets/tokens/MACs/password hashes
-  being verified. Severity: **High**. Fix: `crypto.timingSafeEqual()`.
-  Do NOT flag ordinary string comparisons that merely involve variables named "token" —
-  only comparisons whose result reveals secret equality to an attacker.
-
-## Unsafe Memory
-
-- `Buffer.allocUnsafe()` where the buffer is not immediately and fully overwritten —
-  leaks previous memory contents. Severity: **High**. Fix: `Buffer.alloc()`.
-
-## Denial of Service
-
-- **ReDoS** — nested quantifiers: `(a+)+`, `(a|a)+`. Severity: **High**.
-- Unbounded data processing without size limits. Severity: **Medium**.
-- Recursive functions without depth limits on untrusted input. Severity: **High**.
-
-## Information Disclosure
-
-- Error messages exposing internals to end users. Severity: **Medium**.
-- `console.log`/`console.debug` with sensitive data in production. Severity: **Medium**.
-
-## Race Conditions (security-relevant)
-
-- TOCTOU in file operations. Severity: **High**.
-- Auth checks separated from protected action by `await`. Severity: **High**.
+non_findings:
+- an ordinary string comparison that merely involves a variable named "token": only a comparison whose result reveals secret equality to an attacker is a finding

@@ -1,112 +1,63 @@
-# Code Quality Checklist
+purpose:
+- name the code-quality patterns a review flags, with the severity of each
+- load it before the Code Quality analysis pass
 
-## Complexity
+scope:
+- lightweight over-engineering checks that stay active in a default scan
+- every error-handling check belongs to `references/error-handling.md`
+- the full depth framework, the deletion test, seams, and module deepening, belongs to `references/architecture.md`, which loads only under `--arch` or `--full`
 
-- Functions > ~50 lines. Severity: **Medium**.
-- Cyclomatic complexity > 10. Severity: **Medium**.
-- Deeply nested callbacks/promises (> 3 levels). Severity: **Medium**.
-- God classes (10+ methods or 500+ lines). Severity: **Medium**.
-- Functions with 5+ parameters — use options object. Severity: **Low**.
+checks:
+- complexity — function length > 50 lines: Medium
+- complexity — cyclomatic complexity > 10: Medium
+- complexity — nested callbacks or promises deeper than 3 levels: Medium
+- complexity — a god class, methods >= 10 or class length >= 500 lines: Medium
+- complexity — parameters >= 5 on 1 function: Low, use an options object
+- dead code — code after a `return`, `throw`, or `break`: Low
+- dead code — a commented-out block longer than 3 lines: Low, delete it, the history is in version control
+- dead code — an unused private class member: Low
+- dead code — an exported symbol nothing imports: Medium
+- dead code — an empty file or an import-only file: Low
+- dead code — a function defined and never called: Medium
+- naming — a misleading name, such as `isReady` holding a string: Medium
+- naming — a single-letter variable outside a trivial loop: Low
+- naming — mixed conventions, camelCase against snake_case: Low
+- naming — a boolean with no `is`, `has`, `should`, or `can` prefix: Low, report it once per codebase as a Recurring Pattern
+- naming — an opaque abbreviation, `usr`, `msg`, `cfg`: Low
+- debug artifacts — a `debugger;` statement in committed code: High, it stops execution under devtools
+- debug artifacts — a leftover `console.log` or `console.debug` from a debugging session, dumping locals or printing "here": Low, Medium in library code
+- debug artifacts — a committed `.only` or `.skip` in a test file: High, `.only` silently disables the rest of the suite
+- import-time side effects — top-level code doing IO, registration, or global mutation in a module that also exports pure logic: Medium, it makes the module untestable and load-order dependent
+- import-time side effects — fix: top-level work, by moving it behind an explicit `init()` or into the entry point
+- import-time side effects — a singleton constructed at module scope and imported everywhere: Medium, the shared state is hidden and nothing can substitute it in a test
+- testability — `Date.now()`, `new Date()`, or `Math.random()` inline in business logic: Medium, inject a clock or a random source, or take the value as a parameter with a default
+- testability — logic reachable only through a static call chain nothing can substitute in a test: Low, Medium once tests work around it with module-mocking
+- speculative abstraction — an interface with exactly 1 implementation and no test double using it: Low
+- speculative abstraction — a factory or builder for a class constructed in exactly 1 place: Low
+- speculative abstraction — a config option or parameter whose value is identical at every call site: Low
+- duplication — a repeated block of 3+ lines in 2+ places: Medium
+- duplication — copy-pasted logic with minor variations: Medium
+- mutability — `let` where `const` works: Low
+- mutability — a function mutating its input parameter: Medium
+- mutability — a class field that wants `readonly`: Low
+- mutability — exported mutable state, `export let count = 0`: High
+- collections and iteration — `for (let i = 0; ...)` where `for...of` with `.entries()` or `.map()` states the intent: Low
+- collections and iteration — an array lookup in a hot path: Medium, use a `Set` or a `Map`
+- collections and iteration — `indexOf(x) !== -1`: Low, use `includes(x)`
+- hacky patterns — a magic number with no named constant: Low
+- hacky patterns — `setTimeout(..., 100)` used as a synchronization mechanism: High, it is a race condition
+- hacky patterns — a try block wrapping an entire function body: Medium
+- hacky patterns — a TODO, FIXME, or HACK comment: Low each, and report the total count
+- hacky patterns — boolean parameters at the call site, `doSomething(true, false, true)`: Low
+- hacky patterns — platform checks scattered instead of centralized: Low
+- module structure — a circular import, including a cycle through a barrel file: High
+- module structure — a deep relative import, `../../../`: Low, use a path alias
+- comments — JSDoc repeating the type information: Low
+- comments — a comment describing what the code does instead of why: Low
+- comments — a comment that no longer matches the code: Medium
 
-## Dead Code
-
-- Unreachable code after return/throw/break. Severity: **Low**.
-- Commented-out code blocks (> 2-3 lines). Severity: **Low**. Fix: delete (VCS has history).
-- Unused private class members. Severity: **Low**.
-- Exported symbols never imported anywhere. Severity: **Medium**.
-  Exception: symbols re-exported from package entry points or the `exports` map are the
-  public API surface of a library, not dead code — do not flag.
-- Empty files or import-only files. Severity: **Low**.
-- Defined but never called functions. Severity: **Medium**.
-
-## Naming
-
-- Misleading names (`isReady` containing a string). Severity: **Medium**.
-- Single-letter variables outside trivial loops. Severity: **Low**.
-- Inconsistent conventions (mixing camelCase/snake_case). Severity: **Low**.
-- Booleans without `is`/`has`/`should`/`can` prefix. Severity: **Low**.
-  Report once per codebase as a Recurring Pattern, never per variable.
-- Opaque abbreviations (`usr`, `msg`, `cfg`). Severity: **Low**.
-
-## Error Handling
-
-All error-handling checks live in `references/error-handling.md` — do not duplicate here.
-
-## Debug Artifacts
-
-- `debugger;` statement in committed code. Severity: **High** — blocks execution under
-  devtools; never ship.
-- Leftover `console.log`/`console.debug` from debugging sessions (dumps of local
-  variables, "here", "test") in non-CLI code. Severity: **Low**; **Medium** in library
-  code. Don't flag intentional logging or CLI output.
-- Committed `.only` / `.skip` in test files. Severity: **High** — `.only` silently
-  disables the rest of the suite.
-
-## Import-time Side Effects
-
-- Module top-level code performing IO, registrations, or global mutation while the
-  module also exports pure logic. Severity: **Medium** — makes the module untestable
-  and load-order-dependent. Fix: move behind an explicit `init()` or the entry point.
-- Singleton constructed at module scope and imported everywhere. Severity: **Medium** —
-  hidden shared state; nothing can substitute it in tests.
-
-## Testability
-
-- `Date.now()` / `new Date()` / `Math.random()` inline in business logic.
-  Severity: **Medium** — untestable nondeterminism. Fix: inject a clock/rng, or accept
-  the value as a parameter with a default.
-- Logic reachable only through static call chains that cannot be substituted in tests.
-  Severity: **Low**; escalate to **Medium** if tests already work around it with
-  module-mocking hacks.
-
-## Speculative Abstraction
-
-Lightweight over-engineering checks, active in default scans. For the full framework
-(deletion test, seams, depth) load `references/architecture.md` (`--arch` / `--full`).
-
-- Interface with exactly one implementation and no test double using it. Severity: **Low**.
-- Factory/builder for a class constructed in exactly one place. Severity: **Low**.
-- Config option/parameter whose value is identical at every call site. Severity: **Low**.
-
-## Duplication
-
-- Repeated code blocks (3+ lines in 2+ places). Severity: **Medium**.
-- Copy-pasted logic with minor variations. Severity: **Medium**.
-
-## Mutability
-
-- `let` where `const` works. Severity: **Low**.
-- Functions mutating input parameters. Severity: **Medium**.
-- Class fields that should be `readonly`. Severity: **Low**.
-- Exported mutable state (`export let count = 0`). Severity: **High**.
-
-## Collections and Iteration
-
-- `for(let i=0;...)` where `for...of` with `.entries()` or `.map()` is cleaner.
-  Severity: **Low**. (Don't flag when the index is genuinely needed for non-sequential access.)
-- Array lookup in hot path — use `Set`/`Map`. Severity: **Medium**.
-- `indexOf(x) !== -1` -> `includes(x)`. Severity: **Low**.
-
-## Ad-hoc / Hacky Patterns
-
-- Magic numbers without named constants. Severity: **Low**.
-- `setTimeout(..., 100)` as sync mechanism. Severity: **High** (race condition).
-- Try/catch wrapping entire function body. Severity: **Medium**.
-- Collect TODO/FIXME/HACK comments — note total count. Severity: **Low** each.
-- Boolean parameters: `doSomething(true, false, true)`. Severity: **Low**.
-- Platform checks scattered instead of centralized. Severity: **Low**.
-
-## Module Structure
-
-- Circular imports (including cycles through barrel files). Severity: **High**.
-  A barrel file that causes no cycle is not a finding by itself.
-- Deep relative imports (`../../../`). Severity: **Low**. Fix: path aliases.
-
-For deeper architectural refactors (shallow modules, dependency seams, module deepening, coupling),
-load `references/architecture.md` — available only when architecture review is enabled (`--arch` or `--full`).
-
-## Comments
-
-- JSDoc repeating the type info. Severity: **Low**.
-- Comments describing WHAT instead of WHY. Severity: **Low**.
-- Outdated comments not matching code. Severity: **Medium**.
+non_findings:
+- a symbol re-exported from a package entry point or the `exports` map: it is the public API of a library, not dead code
+- intentional logging and CLI output
+- an index-based loop where the index is genuinely needed for non-sequential access
+- a barrel file that causes no cycle

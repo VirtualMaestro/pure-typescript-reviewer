@@ -1,117 +1,92 @@
-# Architecture Review Checklist
+purpose:
+- name the architecture smells a review flags, with the severity of each, and the shape a deepening proposal takes
+- load it only while architecture review is active, under `--arch` or `--full`
 
-Loaded only when architecture review is active (`--arch` or `--full` flag).
+scope:
+- circular imports and deep relative imports are also flagged by the Code Quality domain in every scan mode, and this file adds the refactoring guidance behind them
+- a wire type reaching a domain module is also a `references/boundary-validation.md` check
 
-## Glossary
+glossary:
+- use these terms in every architecture finding, and do not substitute "component", "service", "API", or "boundary"
+- module — anything with an interface and an implementation: a function, a class, a package, a feature slice
+- interface — everything a caller has to know: types, invariants, error modes, ordering, config, and not only the TypeScript `interface` keyword
+- implementation — the code inside the module
+- depth — `leverage` at the interface, where deep means large behaviour behind a small interface, and shallow means an interface nearly as complex as the implementation
+- seam — where the interface lives, a place behaviour can be altered without editing in place, and the term to use instead of "boundary"
+- adapter — a concrete thing satisfying an interface at a seam
+- `leverage` — what a caller gets from depth: more capability per unit of interface it has to learn
+- locality — what a maintainer gets from depth: change, bugs, and knowledge concentrated in 1 place
 
-Use these terms in all architecture findings. Don't substitute "component", "service", "API", "boundary".
+read_first:
+- depth is a property of the interface and not of the implementation: a deep module can be internally complex, and what counts is how small its interface is against what it hides
+- the deletion test: imagine deleting the module, and if the complexity vanishes it was a pass-through, while if it reappears across the callers it was earning its keep
+- tests reach a module through its interface, the same seam its callers use, so a test that reaches past the interface into internals says the module is the wrong shape
+- depth is missing as often as it is overdone, so flag a missing abstraction where it already hurts
+- dependency direction matters more than layer count: the domain owns the logic, and transport and storage are injected or isolated at the edge
+- 1 adapter is a hypothetical seam and 2 adapters are a real seam: do not introduce a port until at least 2 adapters are justified, production and test at the minimum
 
-- **Module** — anything with an interface and an implementation: function, class, package, feature slice.
-- **Interface** — everything a caller must know: types, invariants, error modes, ordering, config. Not just the TypeScript `interface` keyword.
-- **Implementation** — the code inside the module.
-- **Depth** — leverage at the interface. Deep = large behaviour behind small interface. Shallow = interface nearly as complex as implementation.
-- **Seam** — where the interface lives; a place behaviour can be altered without editing in place. Prefer over "boundary".
-- **Adapter** — a concrete thing satisfying an interface at a seam.
-- **Leverage** — what callers get from depth: more capability per unit of interface they must learn.
-- **Locality** — what maintainers get from depth: change, bugs, and knowledge concentrated in one place.
+workflow:
+1. grep for feature-module imports inside the `shared`, `common`, `core`, and `utils` directories, which is the inverted direction
+2. list the importers of each module, and treat a module whose every export has exactly 1 importer as a pass-through candidate for the deletion test
+3. treat an interface or type re-exported unchanged through 3+ files as a pass-through chain
+4. check whether the exports of a utility file imported by most modules share 1 domain concept
+5. read `git log --name-only` and treat a feature whose commits consistently touch 4+ directories as scattered logic
+6. run these checks rather than guessing from file names
 
-## Principles
+checks:
+- shallow modules — understanding 1 concept requires bouncing across many tiny modules: Medium
+- shallow modules — a module interface nearly as complex as its implementation: Medium
+- shallow modules — a pass-through wrapper, manager, helper, or service that hides no complexity: Medium, apply the deletion test
+- shallow modules — pure functions extracted for testability alone while the real bugs sit in the orchestration: Medium, the extraction bought no locality
+- coupling and seams — coupling leaking across a module interface, where callers have to know implementation details: High
+- coupling and seams — tests that reach into module internals, or that mock many neighbours to test 1 thing: High
+- coupling and seams — a public API exporting implementation details, config, ordering constraints, or internal error modes: Medium, a caller should not need them
+- import and module structure — a barrel-file cycle or a circular import chain that reordering cannot resolve: High
+- import and module structure — a deep relative import, `../../../`, marking a module not co-located with what it depends on: Low, suggest a path alias or co-location
+- locality — a shared utility module mixing unrelated domain concepts: Medium
+- locality — feature logic split by technical layer, a controller, service, and repo per feature, so that 1 feature change touches 4+ files: Medium
+- under-engineering — 1 business rule, the same constants and branching, implemented in 2+ modules: Medium, deepen 1 module to own the rule
+- under-engineering — 1 module accreting unrelated concerns, importing from many unrelated domains and exporting to disjoint caller groups: Medium, split it along the caller groups
+- under-engineering — event or string-keyed indirection between 2 modules that only ever talk to each other: Low, a direct typed call is checkable
+- dependency direction — a domain or computation module importing IO directly, `node:fs`, `node:http`, a DB client, or `fetch`, where the classification puts that IO behind a seam: Medium
+- dependency direction — a shared or leaf module, `utils/`, `types/`, or `core/`, importing from a feature module: High, the inverted direction is how import cycles start
+- dependency direction — a wire or DTO type from an external API imported deep into a domain module instead of mapped at the seam that owns the external contract: Medium
 
-- **Depth is a property of the interface, not the implementation.** A deep module can be internally complex — what matters is how small its interface is relative to what it hides.
-- **Deletion test.** Imagine deleting the module. If complexity vanishes → it was a pass-through. If complexity reappears across callers → it was earning its keep.
-- **The interface is the test surface.** Callers and tests cross the same seam. If tests must reach past the interface into internals, the module is the wrong shape.
-- **One adapter = hypothetical seam. Two adapters = real seam.** Don't introduce a port unless at least two adapters are justified (production + test at minimum). Single-adapter seams are just indirection.
+forbidden_behaviors:
+- do not invent a domain term: use a function, type, file, or package name that already exists, and prefer one used in adjacent code
+- do not keep an old unit test on a shallow module a deepening merged away: delete it, and write the new test at the deepened interface
+- do not assert internal state: a test asserts observable behaviour through the interface
+- do not expose an internal seam through the interface because a test wants it
+- do not accept a test that has to change whenever the implementation changes: it is testing past the interface
+- do not touch code for a `needs-confirm` change before showing a diff or a migration plan and getting an explicit go-ahead
 
-## Smell Checklist
+dependency_classification:
 
-### Shallow Modules
+| Category | What it is | Test strategy |
+|---|---|---|
+| in-process | pure computation or in-memory state, no IO | merge the modules and test through the deepened interface, no adapter needed |
+| local-substitutable | a DB, a filesystem, anything with a usable local stand-in such as PGLite or an in-memory filesystem | deepen using the stand-in in tests, the seam is internal and the external interface needs no port |
+| remote-owned | an internal service across a network seam | define a port at the seam, a production adapter plus an in-memory adapter for tests, and inject only the transport |
+| true-external | a third-party service you do not control, Stripe or Twilio | inject a port and provide a mock adapter for tests |
 
-- Understanding one concept requires bouncing across many tiny modules. Severity: **Medium**.
-- Module interface is nearly as complex as its implementation (shallow). Severity: **Medium**.
-- Pass-through wrapper / manager / helper / service that adds no hidden complexity. Severity: **Medium**. Apply deletion test.
-- Pure functions extracted only for testability, but real bugs hide in orchestration — no locality. Severity: **Medium**.
+severity_mapping:
 
-### Coupling and Boundaries
+| Severity | Architecture criteria |
+|---|---|
+| Highest | an architecture issue directly causing a security vulnerability, data loss, or a production correctness bug |
+| High | circular imports or cross-module coupling that blocks reliable tests or causes recurring defects |
+| Medium | shallow modules, scattered domain logic, pass-through abstractions, hard-to-test orchestration |
+| Low | a small interface leak, or naming drift between a module interface and what it exposes |
 
-- Tight coupling leaks across module interfaces (callers must know implementation details). Severity: **High**.
-- Tests must reach into module internals or mock too many neighbors to test one thing. Severity: **High**.
-- Public API exports implementation details, config, ordering constraints, or internal error modes that callers should not need to know. Severity: **Medium**.
+fixability:
 
-### Import and Module Structure
+| Fixability | Meaning | Fix mode behaviour |
+|---|---|---|
+| `auto` | a local change: import path cleanup, a narrow circular-import break, a local module merge with co-located tests | applied in the normal fix loop |
+| `needs-confirm` | an interface change, a dependency inversion, a test replacement, a feature-slice reorganization | shown to the operator, not applied automatically |
+| `report-only` | a broad migration, an ambiguous domain model, a change needing a product or domain decision | left as documentation, never applied |
 
-*Note: circular imports and deep relative imports are also flagged by the Code Quality domain in all scan modes. Architecture domain provides deeper refactoring guidance when Code Quality flags them.*
-
-- Barrel-file cycles or circular import chains that can't be resolved by reordering. Severity: **High**.
-- Deep relative imports (`../../../`) indicating modules not co-located with what they depend on. Severity: **Low**. Suggest path aliases or co-location.
-
-### Locality
-
-- Shared utility module mixes unrelated domain concepts (a grab-bag util). Severity: **Medium**.
-- Feature logic split by technical layer (e.g. controller / service / repo per feature) in a way that destroys locality — change to one feature requires touching 4+ files. Severity: **Medium**.
-
-### Under-Engineering
-
-Depth cuts both ways — flag missing abstraction where it already hurts:
-
-- Identical business rule (same constants/branching) implemented in 2+ modules.
-  Severity: **Medium**. Under-abstraction; deepen one module to own the rule.
-- One module accreting unrelated concerns (imports from many unrelated domains, exports
-  serving disjoint caller groups). Severity: **Medium**. Split along caller groups.
-- Event/string-keyed indirection between two modules that only ever talk to each other —
-  a direct typed call would be simpler and checkable. Severity: **Low**.
-
-## Dependency Direction and Layering
-
-Direction matters more than layer count. Detect and flag:
-
-- Domain/computation modules importing IO directly (`node:fs`, `node:http`, DB clients,
-  `fetch`) when the dependency classification says the IO belongs behind a seam.
-  Severity: **Medium**. The domain owns logic; transport/storage is injected or
-  isolated at the edge.
-- Shared/leaf modules (`utils/`, `types/`, `core/`) importing from feature modules —
-  inverted direction; the "shared" code now depends on a specific feature.
-  Severity: **High** — this is how import cycles start.
-- Wire/DTO types from an external API imported deep into domain modules rather than
-  mapped to domain types at the boundary. Severity: **Medium**.
-  Cross-reference: `references/boundary-validation.md`.
-
-## Detection Heuristics
-
-Run these — don't guess from file names:
-
-- Grep feature-module imports inside `shared|common|core|utils` directories
-  (inverted dependency direction).
-- For each module, list its importers. A module whose every export has exactly one
-  importer is a pass-through candidate — apply the deletion test.
-- An interface/type re-exported through 3+ files unchanged marks a pass-through chain.
-- A utility file imported by the majority of modules is a grab-bag candidate — check
-  whether its exports share a domain concept.
-- Change-set locality: in `git log --name-only`, do commits touching one feature
-  consistently touch 4+ directories? That feature's logic is scattered.
-
-## Dependency Classification
-
-When proposing a deepening fix, classify the dependency to determine test strategy:
-
-**1. In-process** — pure computation or in-memory state, no I/O.
-- Strategy: merge modules, test through the deepened interface directly. No adapter needed.
-
-**2. Local-substitutable** — DB, filesystem, etc. with usable local stand-ins (PGLite, in-memory filesystem).
-- Strategy: deepen using the stand-in in tests. The seam is internal; no port at the external interface.
-
-**3. Remote but owned** — internal services across a network boundary.
-- Strategy: define a port (TypeScript interface) at the seam. Production adapter + in-memory adapter for tests.
-- The deep module owns the logic; only the transport is injected.
-
-**4. True external** — third-party services (Stripe, Twilio, etc.) you don't control.
-- Strategy: inject a port; provide a mock adapter for tests.
-
-**Rule:** don't introduce a port unless at least two adapters are justified. A single-adapter seam is indirection without benefit.
-
-## Candidate Report Format
-
-Each architecture finding uses this format in the `## Architecture Opportunities` section:
-
+report_format:
 ```md
 ### TITLE — Severity
 
@@ -125,34 +100,3 @@ Each architecture finding uses this format in the `## Architecture Opportunities
 - **Trade-offs:** what gets harder, what is genuinely uncertain
 - **Fixability:** auto | needs-confirm | report-only
 ```
-
-## Severity Mapping for Architecture
-
-| Level | Architecture criteria |
-|---|---|
-| **Highest** | Architecture issue directly causing a security vulnerability, data loss, or production correctness bug |
-| **High** | Circular imports or cross-module coupling that blocks reliable tests or causes recurring defects |
-| **Medium** | Shallow modules, scattered domain logic, pass-through abstractions, hard-to-test orchestration |
-| **Low** | Small interface leaks, minor naming drift between module interface and what it exposes |
-
-## Fixability Mapping
-
-| Fixability | Meaning | Fix mode behavior |
-|---|---|---|
-| `auto` | Local change: import path cleanup, narrow circular-import break, local module merge with co-located tests | Applied in normal fix loop |
-| `needs-confirm` | Interface change, dependency inversion, test replacement, feature-slice reorganization | Shown to user, NOT applied automatically |
-| `report-only` | Broad migration, ambiguous domain model, change requiring product/domain decision | Never applied, left as documentation |
-
-## Naming Guidance
-
-Use names that already exist in the codebase (function names, type names, file names, package names). Don't invent domain terms. If a deepened module needs a name, prefer a name already used in adjacent code.
-
-## Architecture Fix Rules
-
-When applying `auto` fixability architecture findings:
-
-- Write new tests at the deepened module's interface. Old unit tests on shallow modules that are now merged become redundant — delete them.
-- Tests assert observable behavior through the interface, not internal state.
-- Don't expose internal seams through the interface just because tests need them.
-- Tests that have to change when the implementation changes are testing past the interface.
-- For large architecture changes classified `needs-confirm`, show a diff/migration plan and wait for explicit go-ahead before touching code.

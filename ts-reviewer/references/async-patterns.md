@@ -1,106 +1,46 @@
-# Async Patterns Checklist
+purpose:
+- name the async patterns a review flags, with the severity of each
+- load it before the Async Patterns analysis pass
 
-## Floating Promises
+scope:
+- errors lost to the async machinery: a floating promise, an unread `allSettled` result
+- every catch, throw, and failure-design check belongs to `references/error-handling.md`
 
-- Async function called without `await`, `.then()`, or `.catch()`.
-  Severity: **High**. Fix: `await doWork()` or `void doWork().catch(handleError)`.
-- `items.forEach(async (item) => ...)` — forEach ignores returned promises.
-  Severity: **High**. Fix: `for...of` with `await`, or `Promise.all(items.map(...))`.
-- Floating promise in constructor (cannot be async).
-  Severity: **High**. Fix: static factory `static async create(): Promise<Foo>`.
-- Async event handler where caller doesn't expect promise.
-  Severity: **Medium**. Fix: try/catch inside handler.
-
-## Error Handling
-
-All catch/throw/failure-design checks live in `references/error-handling.md` — do not
-duplicate them here. This domain only flags errors *lost to the async machinery*
-(floating promises above, allSettled below).
-
-## Race Conditions
-
-- Multiple async ops modifying shared state without coordination.
-  Severity: **High**. Fix: serialize via a promise chain / async mutex, or make the
-  operations idempotent so ordering doesn't matter.
-- `Promise.race()` where losing promise's side effects still execute.
-  Severity: **Medium**.
-- Read-modify-write with `await` in the middle. Severity: **High** in concurrent contexts.
-- Overlapping requests writing to the same variable/state where the earlier response
-  can arrive last (last-write-wins clobbering). Severity: **High** in concurrent contexts.
-  Fix: request-sequence token check before applying the result, or abort the previous
-  request via AbortController.
-- Lazily-initialized async singleton where concurrent first callers each run the
-  initializer. Severity: **Medium**. Fix: memoize the *promise*, not the resolved value:
-  `init ??= doInit(); return init;`
-
-## Timeouts
-
-- `await` on network/IO (fetch, DB call, queue op) with no timeout and no AbortSignal.
-  Severity: **Medium** (internal tools), **High** (request-handling / server paths —
-  a hung dependency hangs every caller).
-  Fix: `fetch(url, { signal: AbortSignal.timeout(5000) })`, or `Promise.race` with a
-  timer for APIs without signal support (clear the timer in `finally`).
-- Timeout implemented with `Promise.race` but the losing operation keeps running and
-  holds resources (sockets, locks). Severity: **Medium**. Fix: abort the operation,
-  don't just abandon the promise.
-
-## Retries
-
-- Retry loop without a max-attempt cap. Severity: **High** (infinite loop under
-  persistent failure).
-- Retries without backoff (tight loop hammering a failing dependency). Severity: **Medium**.
-  Fix: exponential backoff with jitter.
-- Retrying a non-idempotent operation (payment, email send, resource creation).
-  Severity: **Highest** — duplicate side effects. Fix: idempotency key or check-then-act
-  on the server side; otherwise don't retry.
-
-## Concurrency Limits
-
-- `Promise.all(items.map(asyncFn))` where `items` is unbounded (user data, file lists,
-  API pages) and `asyncFn` does network/disk work. Severity: **Medium**.
-  Fix: process in chunks or use a concurrency limiter. Do NOT recommend converting
-  sequential awaits to unbounded `Promise.all` — recommend it only with an explicit
-  concurrency cap when the collection can exceed ~10 items.
-- `Promise.all` where one rejection should not discard sibling results, or where
-  siblings' later rejections become unhandled. Severity: **Medium**.
-  Fix: `Promise.allSettled` + explicit handling of `rejected` entries.
-- `Promise.allSettled()` results used without checking `status === 'rejected'` entries.
-  Severity: **Medium**.
-
-## Cancellation
-
-- Long async ops without `AbortController`/`AbortSignal` support.
-  Severity: **Low** (internal), **Medium** (public API).
-- `AbortSignal` accepted but never checked. Severity: **Medium**.
-- Missing cleanup on cancellation (timers, listeners, streams). Severity: **High**.
-
-## Promise Utilities
-
-- Manual promise + resolve/reject variables where `Promise.withResolvers()` (ES2024) applies.
-  Severity: **Low**. Fix: `const { promise, resolve, reject } = Promise.withResolvers()`.
-  Note: only flag if TS target is ES2024+ or polyfill is available.
-
-## Promise Anti-Patterns
-
-- `new Promise()` wrapping async operation (explicit promise constructor anti-pattern).
-  Severity: **Low**. Fix: use async/await.
-- `async function() { return await bar(); }` — unnecessary await (except in try/catch).
-  Severity: **Low**.
-- Mixing `await` and `.then()` chains in same function. Severity: **Low**.
-- Sequential `await` in loop when iterations are independent AND the collection is small
-  and bounded (< ~10 known items). Severity: **Medium**. Fix: `Promise.all(items.map(...))`.
-  If the collection is unbounded or does network/disk work, require a concurrency cap
-  instead — see Concurrency Limits.
-
-## Async Iterators
-
-- Async generator that never yields — should be regular async function. Severity: **Low**.
-- Missing cleanup in async iteration `finally` block. Severity: **Medium**.
-- Async iterator without proper cleanup on early termination (break/return). Severity: **Medium**.
-
-## Timer Patterns
-
-- `setTimeout`/`setInterval` without storing timer ID. Severity: **Medium**.
-- `setInterval` for async work (calls stack up). Severity: **High**.
-  Fix: recursive `setTimeout` after async work completes.
-- `setTimeout(fn, 0)` for async coordination. Severity: **Low**.
+checks:
+- floating promises — an async function called with no `await`, `.then()`, or `.catch()`: High, use `await doWork()` or `void doWork().catch(handleError)`
+- floating promises — `items.forEach(async (item) => ...)`: High, `forEach` drops the returned promise, use `for...of` with `await` or `Promise.all(items.map(...))`
+- floating promises — a floating promise in a constructor, which cannot be async: High, use a static factory, `static async create(): Promise<Foo>`
+- floating promises — an async event handler whose caller expects no promise: Medium, catch inside the handler
+- race conditions — several async operations modifying shared state with no coordination: High, serialize them through a promise chain or an async mutex, or make them idempotent
+- race conditions — `Promise.race()` where the side effects of the losing promise still run: Medium
+- race conditions — a read-modify-write with an `await` in the middle: High in a concurrent context
+- race conditions — overlapping requests writing 1 variable, where the earlier response can arrive last: High in a concurrent context, it clobbers the later write
+- race conditions — fix: last-write-wins, by checking a request-sequence token before applying the result, or by aborting the previous request through an `AbortController`
+- race conditions — a lazily initialized async singleton where every concurrent first caller runs the initializer: Medium, memoize the promise rather than the resolved value, `init ??= doInit()`
+- timeouts — an `await` on network or IO work with no timeout and no `AbortSignal`: Medium in an internal tool, High on a request-handling path where a hung dependency hangs every caller
+- timeouts — fix: a missing timeout, with `fetch(url, { signal: AbortSignal.timeout(5000) })`, or with `Promise.race` against a timer cleared in `finally` when the API takes no signal
+- timeouts — a timeout built on `Promise.race` where the losing operation keeps running and holds a socket or a lock: Medium, abort the operation rather than abandoning the promise
+- retries — a retry loop with no cap on attempts: High, a persistent failure turns it into an infinite loop
+- retries — retries with no backoff: Medium, use exponential backoff with jitter rather than a tight loop against a failing dependency
+- retries — retrying a non-idempotent operation such as a payment, an email send, or a resource creation: Highest, it duplicates the side effect
+- retries — fix: a non-idempotent retry, with an idempotency key or a server-side check-then-act, and otherwise do not retry
+- concurrency limits — `Promise.all(items.map(asyncFn))` over an unbounded collection where `asyncFn` does network or disk work: Medium, process in chunks or use a concurrency limiter
+- concurrency limits — note: recommend `Promise.all` only with an explicit concurrency cap once the collection can exceed 10 items
+- concurrency limits — `Promise.all` where 1 rejection discards the sibling results the caller still needs: Medium, use `Promise.allSettled` and handle the rejected entries
+- concurrency limits — note: a later sibling rejection inside `Promise.all` is not unhandled: every input is subscribed to at the call, so this is not the reason to reach for `allSettled`
+- concurrency limits — `Promise.allSettled()` results read with no check for `status === 'rejected'`: Medium
+- cancellation — a long async operation with no `AbortController` or `AbortSignal` support: Low internally, Medium on a public API
+- cancellation — an `AbortSignal` accepted and never checked: Medium
+- cancellation — a timer, listener, or stream left uncleaned on cancellation: High
+- promise utilities — a manual promise with separate resolve and reject variables where `Promise.withResolvers()` applies: Low, and flag it only when the target is ES2024+ or a polyfill is present
+- promise anti-patterns — `new Promise()` wrapping an operation that is already async: Low, use async and await
+- promise anti-patterns — `async function() { return await bar(); }` outside a try block: Low, the `await` is unnecessary
+- promise anti-patterns — `await` and `.then()` chains mixed in 1 function: Low
+- promise anti-patterns — a sequential `await` in a loop over independent iterations of a bounded collection under 10 known items: Medium, use `Promise.all(items.map(...))`
+- promise anti-patterns — note: an unbounded collection or network and disk work needs a concurrency cap instead, under concurrency limits
+- async iterators — an async generator that never yields: Low, it wants to be a plain async function
+- async iterators — no cleanup in the `finally` of an async iteration: Medium
+- async iterators — an async iterator with no cleanup on early termination through `break` or `return`: Medium
+- timer patterns — `setTimeout` or `setInterval` called with no stored timer id: Medium
+- timer patterns — `setInterval` driving async work: High, the calls stack up, use a recursive `setTimeout` after the work completes
+- timer patterns — `setTimeout(fn, 0)` used to coordinate async work: Low

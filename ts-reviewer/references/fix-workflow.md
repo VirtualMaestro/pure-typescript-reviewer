@@ -1,23 +1,21 @@
-# Fix Workflow Protocol
+purpose:
+- state the complete fix mode protocol, from parsing the report to the final state of the working tree
+- read it before executing any fix or auto mode run
 
-This document describes the complete fix mode protocol.
-Read this before executing any fix or auto mode operation.
+scope:
+- the fix-mode behaviour of each `Fixability:` value is owned by `references/architecture.md`
+- the testing strategy for an architecture fix is owned by `references/architecture.md`
 
-## Prerequisites
+read_first:
+- `code-smells.md` exists in the project root, and a missing report stops the run with the error "No scan report found. Run scan first."
+- the project is inside a git repository, so a change can be reverted
+- recommend that the operator commits or stashes uncommitted work before the fix runs, which leaves `git diff` and `git checkout -- .` usable to review and revert
+- the baseline taken in step 3 decides what counts as a regression: a test failing before the fixes is pre-existing and stays out of the work
 
-- `code-smells.md` must exist in the project root.
-  If missing, stop with error: "No scan report found. Run scan first."
-- The project must be in a git repository (for safe revert if needed).
-- Recommend the user commit or stash uncommitted work before fix runs,
-  so they can `git diff` or `git checkout -- .` to revert all changes.
-
-## Step 1 — Parse the Report
-
-Read `code-smells.md` and extract all issues into a work list.
-Group issues by file path. Within each file, sort by line number **descending**
-(fix from bottom of file upward so line numbers above don't shift).
-
-Build the work plan:
+workflow:
+1. read `code-smells.md` and extract every issue into a work list
+2. group the issues by file path, and sort them by line number descending inside each file, so a fix lower in the file does not shift the lines above it
+3. build the work plan
 ```
 File: src/auth/token.ts
   - Line 142: [High] Unsafe `as` cast — type-safety
@@ -28,200 +26,92 @@ File: src/api/handler.ts
   - Line 201: [Highest] eval() with user input — security
   - Line 55:  [Medium] Missing exhaustive check — type-safety
 ```
-
-## Step 2 — Detect Test Infrastructure
-
-Check for test runner in this order:
-
-| Signal | Runner | Command |
-|---|---|---|
-| `package.json` has `"scripts": { "test": "..." }` AND the script is not the npm placeholder (`echo "Error: no test specified" && exit 1`) | npm script | `npm test` (use `pnpm test` / `yarn test` if a pnpm/yarn lockfile is present) |
-| `vitest.config.*` exists | vitest | `npx vitest run` |
-| `jest.config.*` or `"jest"` in package.json | jest | `npx jest` |
-| `*.test.ts` / `*.spec.ts` + `"mocha"` in devDeps | mocha | `npx mocha` |
-| `deno.json` exists | deno | `deno test` |
-| `bun.lockb` or `bun.lock` exists | bun | `bun test` |
-| Node.js 18+ and `*.test.ts` files | node:test | `node --test` |
-
-If no test infrastructure found:
-- Warn the user: "No test runner detected. Fixes will be applied without test verification."
-- Skip all test-related steps (baseline, regression tests, verification).
-- Still run `tsc --noEmit` and linter after fixes.
-
-Also detect the test file naming convention:
-- `*.test.ts` vs `*.spec.ts`
-- `__tests__/` directory vs co-located with source
-- Test framework imports (`describe/it` vs `test` vs `Deno.test`)
-
-## Step 3 — Capture Test Baseline
-
-Run the full test suite BEFORE any changes:
+4. detect the test runner through the signals in `test_runners`, in the order listed there
+5. detect the test file convention: `*.test.ts` against `*.spec.ts`, a `__tests__/` directory against co-location, and the framework imports, `describe` and `it` against `test` against `Deno.test`
+6. warn the operator with "No test runner detected. Fixes will be applied without test verification." when no test infrastructure is found, skip every test step, and still run the compiler and the linter
+7. run the full test suite before any change, and write the log to the OS temp directory, or to the project root when temp is unavailable
 ```bash
 <test_command> 2>&1 | tee "$TMPDIR/ts-reviewer-baseline.log"
 ```
-Write logs to the OS temp directory (or the project root if temp is unavailable —
-recommend gitignoring them). Do NOT write to `.claude/` — the skill must work in
-non-Claude environments and the directory may not exist.
-
-Record:
-- Total tests: N
-- Passing: N
-- Failing: N (list these — they are pre-existing failures, NOT our responsibility)
-- Test run command used
-
-This baseline is critical. After our fixes, any NEW failures are regressions we caused.
-Pre-existing failures that still fail are not our problem.
-
-## Step 4 — Apply Fixes File-by-File
-
-Process one file at a time. For each file:
-
-### 4a. Apply all fixes in the file
-
-Go through the file's issues sorted by line number descending.
-For each issue:
-
-1. Read the current state of the file (lines may have shifted from previous fixes in same file).
-2. Apply the fix described in the report.
-3. If the fix involves replacing a pattern (e.g., `enum` -> `as const`), update ALL
-   references to that symbol across the codebase (imports, usages).
-
-### 4b. Write regression tests
-
-For each fix, write a regression test if the issue is testable.
-
-**Testable issues** (write a regression test):
-- Type safety: incorrect cast → test that the function handles the correct type
-- Security: eval/injection → test that the sanitized version rejects malicious input
-- Async: floating promise → test that errors propagate correctly
-- Bugs: missing null check → test with null/undefined input
-
-**Non-testable issues** (skip regression test):
-- Style changes (naming, formatting)
-- Config changes (tsconfig flags)
-- Modernization that doesn't change behavior (enum -> as const with same values)
-- Complexity reduction (splitting a function — behavior unchanged)
-
-Regression test conventions:
-- Match the project's existing test naming convention and framework
-- Place tests next to existing test files, or in `__tests__/` if that's the convention
-- Name: `<original-file>.reviewer-fixes.test.ts` (or `.spec.ts` per convention)
-- Each test should be clearly labeled with the issue title:
-  ```typescript
-  describe('ts-reviewer fixes: src/auth/token.ts', () => {
-    it('should not use unsafe cast for token payload (type-safety)', () => {
-      // test that validates the fix
-    });
+8. record the baseline: total tests, passing, failing with the list, and the command used
+9. process 1 file at a time, reading its current state before each fix, since an earlier fix in the same file has shifted the lines
+10. apply the fix the report describes
+11. update every reference to a renamed or replaced symbol across the codebase, its imports and its usages, when the fix replaces a pattern such as `enum` with `as const`
+12. write a regression test for each testable fix: an incorrect cast, an injection sink, a floating promise, or a missing null check
+13. skip the regression test for an untestable fix: a naming or formatting change, a config flag, a modernization that keeps the behaviour, or a complexity split
+14. name the regression test file `<original-file>.reviewer-fixes.test.ts`, following the naming, the placement, and the framework the project already uses
+15. label each test with the issue title, and keep it to the specific fix rather than the whole function
+```typescript
+describe('ts-reviewer fixes: src/auth/token.ts', () => {
+  it('should not use unsafe cast for token payload (type-safety)', () => {
+    // test that validates the fix
   });
-  ```
-- Keep tests focused and minimal — test the specific fix, not the entire function
-- Tell the user these files are candidates to rename and merge into their existing
-  suites — the `.reviewer-fixes` naming is a handoff convention, not a permanent home
-
-### 4c. Run tsc after each file
-
-```bash
-npx tsc --noEmit 2>&1
+});
 ```
-
-On large repos (> ~30 files in the work plan) where a full typecheck is slow, use
-`npx tsc --noEmit --incremental` or batch the check every 3-5 files instead of every file.
-
-If `tsc` reports NEW errors in the file we just fixed or in files affected by our changes:
-- Analyze the errors
-- Fix them immediately (they are likely caused by our refactoring — e.g., type changes
-  that affect consumers)
-- Re-run `tsc` to confirm
-- If unable to fix after 2 attempts on the same error, revert the last fix in this file
-  and mark the issue as `[FIX FAILED: caused type errors]` in the report
-
-### 4d. Move to next file
-
-Repeat 4a-4c for each file in the work plan.
-
-## Step 5 — Linter Pass
-
-After all files are fixed, run the linter:
-
+16. tell the operator that the `.reviewer-fixes` files are candidates to rename and merge into the existing suites: the naming is a handoff convention and not a permanent home
+17. run `npx tsc --noEmit 2>&1` after each file, and use `--incremental` or check every 3..5 files instead where the work plan > 30 files and a full typecheck is slow
+18. fix a new compiler error in the file just changed or in a file the change affects, then run the compiler again to confirm
+19. revert the last fix in the file and mark the issue `[FIX FAILED: caused type errors]` when the same error survives 2 attempts
+20. repeat steps 9..19 for each file in the work plan
+21. run the linter over the changed files once every file is fixed
 ```bash
 # ESLint
 npx eslint [changed_files] --format json 2>/dev/null
 # or Biome
 npx biome check [changed_files] --reporter json 2>/dev/null
 ```
-
-If linter reports errors in files we changed:
-- Auto-fix what's auto-fixable: `npx eslint --fix [files]` or `npx biome check --fix [files]`
-- For remaining errors: fix manually
-- Re-run linter to confirm clean
-
-## Step 6 — Test Verification
-
-Run the full test suite:
+22. apply `npx eslint --fix [files]` or `npx biome check --fix [files]`, fix the rest by hand, and run the linter again to confirm it is clean
+23. run the full test suite and compare it against the baseline through `baseline_verdicts`
 ```bash
 <test_command> 2>&1 | tee "$TMPDIR/ts-reviewer-postfix.log"
 ```
-
-Compare with baseline:
-
-| Baseline | Post-fix | Verdict |
-|---|---|---|
-| PASS | PASS | OK — no regression |
-| FAIL | FAIL | OK — pre-existing failure, not our problem |
-| PASS | FAIL | REGRESSION — we broke this, must fix |
-| FAIL | PASS | BONUS — we accidentally fixed a pre-existing failure |
-| (new) | FAIL | Our new regression test fails — must fix |
-| (new) | PASS | Our new regression test passes — good |
-
-For each REGRESSION:
-1. Analyze the test failure and the stack trace.
-2. Identify which fix caused it (check git diff for the relevant file).
-3. Either fix the regression or revert the offending fix.
-4. Mark reverted fixes as `[FIX REVERTED: caused test regression in <test>]`.
-
-## Step 7 — Verification Loop
-
-After fixing regressions, repeat:
-1. `tsc --noEmit`
-2. Linter check
-3. Full test suite
-
-If new issues appear, fix them. **Maximum 5 iterations** of this loop.
-
-After 5 iterations, if issues remain:
-- Stop fixing
-- Leave the code in its current state
-- Update the report with a "Stabilization" section listing unresolved regressions
-- The user will need to handle these manually
-
-Iteration tracking:
+24. read the failure and the stack trace of each regression, and identify the fix that caused it from the diff of that file
+25. fix the regression, or revert the fix that caused it and mark it `[FIX REVERTED: caused test regression in <test>]`
+26. repeat the compiler, the linter, and the full suite until they are clean, with iterations <= 5
 ```
 Iteration 1: Fixed 12/15 issues. 2 test regressions found.
 Iteration 2: Fixed 2 regressions. 1 new tsc error.
 Iteration 3: Fixed tsc error. All tests pass. Clean.
 -> Done at iteration 3.
 ```
+27. stop fixing once the fifth iteration ends with the compiler, the linter, or the suite still not clean, leave the code as it stands, and add a Stabilization section to the report listing the unresolved regressions for the operator
+28. show the operator what a `needs-confirm` architecture finding would change, and describe the reorganization or the interface change
+29. apply an approved `needs-confirm` finding through the same file-by-file compiler loop, and mark a rejected one `[SKIPPED: user rejected]`
+30. delete `code-smells.md` when every issue is fixed, and tell the operator "All N issues fixed. Report deleted. Run scan again to verify."
+31. rewrite `code-smells.md` in the shape of `report_format` when any issue remains, carrying both what was fixed and what was not
+32. leave every change in the working tree, unstaged and uncommitted, including the new regression test files
 
-## Step 8 — Update Report
+forbidden_behaviors:
+- do not commit and do not stage: the operator reviews and decides
+- do not delete a file unless the report flagged the whole file as dead code
+- do not modify a file outside the issues in `code-smells.md`, apart from a cascading change such as an import updated after a type rename
+- do not change what the code does: a fix changes how it does it, and only a security fix intentionally changes behaviour, such as validation that now rejects malicious input
+- do not refactor a whole file because of 1 issue: fix exactly what the report names
+- do not apply an ambiguous or risky fix: mark it `[SKIPPED: requires manual review]` and move on, since skipping costs less than breaking the build
+- do not revert with `git checkout -- <file>` or `git restore`: the operator can hold uncommitted changes in that file, and both commands destroy them along with the fix
+- do not touch a file before saving its exact current content to a scratch directory keyed by path: reverting restores that snapshot and re-applies only the fixes already verified
+- do not write any log or snapshot into `.claude/`: the skill runs where that directory does not exist
 
-After fix completes, decide what to do with `code-smells.md`:
+baseline_verdicts:
 
-### All issues fixed successfully
+| Baseline | Post-fix | Verdict |
+|---|---|---|
+| pass | pass | no regression |
+| fail | fail | a pre-existing failure, and not part of this work |
+| pass | fail | a regression this run caused, and it has to be fixed |
+| fail | pass | a pre-existing failure this run fixed by accident |
+| new | fail | a new regression test failing, and it has to be fixed |
+| new | pass | a new regression test passing |
 
-Delete `code-smells.md`. The report served its purpose and the codebase is clean.
-Inform the user: "All N issues fixed. Report deleted. Run scan again to verify."
-
-### Some issues remain (failed, reverted, skipped, or not auto-fixable)
-
-Keep `code-smells.md` as a complete audit trail. The file must show the full picture:
-both what was fixed and what wasn't. This is important because:
-- The user can trace regressions back to a specific fix
-- The user can see at a glance what still needs manual attention
-- A "fixed" issue that later causes problems can be identified and reverted
-
-Rewrite the report with this structure:
-
-```markdown
+report_format:
+- every `[FIXED]` issue carries both the original code and the replacement, so the operator can review it as a diff and identify which fix to revert later
+- keep each snippet to 3..7 lines, showing the changed part alone
+- status tag `[FIXED]`: applied and verified
+- status tag `[FIX FAILED: <reason>]`: attempted and not completed, such as compiler errors
+- status tag `[FIX REVERTED: <reason>]`: applied, caused a test regression, and rolled back
+- status tag `[SKIPPED: requires manual review]`: too risky or too ambiguous to fix automatically
+- no tag: not attempted, because it is not auto-fixable or out of scope
+````markdown
 # TypeScript Code Review Report
 
 **Project:** <n>
@@ -276,123 +166,38 @@ Rewrite the report with this structure:
 
 ## Config Issues
 ## Recurring Patterns
-```
+````
 
-Status tags for each issue:
-- `[FIXED]` — successfully applied and verified
-- `[FIX FAILED: <reason>]` — attempted but couldn't complete (tsc errors, etc.)
-- `[FIX REVERTED: <reason>]` — applied but caused test regression, rolled back
-- `[SKIPPED: requires manual review]` — too risky or ambiguous to auto-fix
-- No tag — not attempted (not auto-fixable or out of scope)
+test_runners:
 
-### BEFORE/AFTER for fixed issues
+| Signal | Runner | Command |
+|---|---|---|
+| `package.json` has a `test` script that is not the npm placeholder | npm script | `npm test`, or `pnpm test` or `yarn test` when that lockfile is present |
+| `vitest.config.*` exists | vitest | `npx vitest run` |
+| `jest.config.*` exists, or `"jest"` is in `package.json` | jest | `npx jest` |
+| `*.test.ts` or `*.spec.ts` plus `"mocha"` in the devDependencies | mocha | `npx mocha` |
+| `deno.json` exists | deno | `deno test` |
+| `bun.lockb` or `bun.lock` exists | bun | `bun test` |
+| Node.js 18+ and `*.test.ts` files | node:test | `node --test` |
 
-Every `[FIXED]` issue must include both the original code and the replacement.
-This serves as a diff the user can review, and if something breaks later,
-they can identify which fix to revert by looking at the AFTER block.
-Keep snippets minimal (3-7 lines) — just the changed portion.
-
-## Step 9 — Final State
-
-After fix completes:
-- All code changes are in the working tree, NOT staged, NOT committed
-- The user can:
-  - `git diff` to review all changes
-  - `git add -p` to selectively stage
-  - `git checkout -- .` to revert everything
-  - Run tests themselves to verify
-- New regression test files are also unstaged
-- `code-smells.md` is either deleted (all clean) or updated with full audit trail
-
----
-
-## Architecture Fixes
-
-Architecture findings in the `## Architecture Opportunities` section carry a `Fixability:` field.
-Fix mode behavior is determined by that field:
-
-| Fixability | Fix mode behavior |
-|---|---|
-| `auto` | Apply in normal fix loop. Run `tsc --noEmit` after each file as usual. |
-| `needs-confirm` | Surface to user with a diff/migration plan. Do NOT apply automatically. Wait for explicit go-ahead. |
-| `report-only` | Never apply. Leave in report as documentation. Mark `[SKIPPED: report-only]`. |
-
-### Testing strategy for architecture fixes
-
-When applying an `auto` architecture fix (module merge, import path cleanup, narrow circular-import break):
-
-1. Write new tests at the **deepened module's interface** — test observable behavior, not internal state.
-2. Delete old unit tests that tested the shallow modules being merged — they become redundant once the deeper module's interface tests cover the same behavior.
-3. Tests must survive internal refactors. If a test must change when implementation changes, it's testing past the interface.
-4. Don't expose internal seams through the module interface just to make tests easier to write.
-
-### `needs-confirm` flow
-
-1. Show the user what would change (describe the reorganization or interface change).
-2. If the user approves, apply the fix using the same file-by-file + `tsc` verification loop.
-3. If the user rejects, mark the finding `[SKIPPED: user rejected]` in the report and move on.
-
----
-
-## Fix Safety Rules
-
-1. **NEVER commit or stage.** The user reviews and decides.
-2. **NEVER delete files** unless the file was entirely dead code flagged in the report.
-3. **NEVER modify files outside the scope** of issues in `code-smells.md`,
-   except for necessary cascading changes (e.g., updating imports after a type rename).
-4. **Preserve all existing behavior.** Fixes should not change what the code does,
-   only how it does it (safer types, modern syntax, proper error handling).
-   The exception is security fixes that intentionally change behavior (e.g., adding input
-   validation that rejects previously-accepted malicious input).
-5. **Keep changes minimal.** Don't refactor an entire file because of one issue.
-   Fix exactly what the report says, nothing more.
-6. **If uncertain, skip.** If a fix is ambiguous or risky, mark it as
-   `[SKIPPED: requires manual review]` and move on. Better to skip than to break.
-7. **Snapshot before touching, restore to revert.** Before applying the first fix to a
-   file, save its exact current content (copy to a temp/scratch directory, keyed by
-   path). To revert a fix, restore the file from that snapshot and re-apply only the
-   fixes that were verified safe. NEVER use `git checkout -- <file>` or `git restore` —
-   the user may have uncommitted changes in the same file, and those commands destroy
-   them along with the fix.
-
----
-
-## Test Runner Quick Reference
-
-### vitest
 ```bash
 npx vitest run                          # run all tests once
 npx vitest run --reporter json          # JSON output for parsing
 npx vitest run src/auth/                # run tests in directory
-```
 
-### jest
-```bash
 npx jest                                # run all
 npx jest --json                         # JSON output
 npx jest --testPathPattern auth         # filter by path
-```
 
-### mocha
-```bash
 npx mocha                               # run all
 npx mocha --reporter json               # JSON output
-```
 
-### node:test
-```bash
-node --test                              # run all *.test.* files
-node --test --test-reporter spec         # detailed output
-```
+node --test                             # run all *.test.* files
+node --test --test-reporter spec        # detailed output
 
-### deno
-```bash
-deno test                                # run all
-deno test --filter "auth"                # filter
-```
+deno test                               # run all
+deno test --filter "auth"               # filter
 
-### bun
-```bash
-bun test                                 # run all
-bun test --bail                          # stop on first failure
+bun test                                # run all
+bun test --bail                         # stop on first failure
 ```

@@ -1,49 +1,27 @@
-# Error Handling Checklist
+purpose:
+- name the error-handling patterns a review flags, with the severity of each
+- load it before the Error Handling analysis pass
 
-Owns all error-handling checks. `code-quality.md` and `async-patterns.md` link here.
-Errors lost specifically to async machinery (floating promises) stay in async-patterns.md.
+scope:
+- every catch, throw, and failure-design check, which `references/code-quality.md` and `references/async-patterns.md` both link here
+- an error lost specifically to the async machinery stays in `references/async-patterns.md`
 
-## Silent Failures
-
-- Empty catch block `catch (e) {}` without an explanatory comment. Severity: **High**.
-- `catch` that only logs and continues, in a code path whose caller assumes success.
-  Severity: **Medium** (High if the swallowed error leaves state partially mutated).
-- `Promise.allSettled()` results used without checking `status === 'rejected'` entries.
-  Severity: **Medium**.
-- Fire-and-forget cleanup (`void cleanup()`) whose failure corrupts subsequent runs.
-  Severity: **Medium**.
-
-## Throw Hygiene
-
-- Throwing non-Error values (strings, objects). Severity: **Medium**.
-  Fix: `throw new Error(...)` — stack traces and `instanceof` depend on it.
-- Custom error classes not extending `Error`. Severity: **Medium**.
-- Rethrow that discards the original: `catch (e) { throw new Error(msg) }`.
-  Severity: **Medium**. Fix: `throw new Error(msg, { cause: e })` (ES2022).
-- Error messages without operational context (what operation, what input id).
-  Severity: **Low**.
-
-## Catch Discipline
-
-- Broad `catch` around a large block treating programmer errors (TypeError,
-  ReferenceError) the same as expected failures — hides bugs as handled conditions.
-  Severity: **Medium**. Fix: narrow the try to the failing operation; re-throw
-  unexpected error types.
-- `catch (e)` where `e` is used as if typed (`e.message` without narrowing) —
-  see type-safety.md `unknown` Discipline. If the project lacks
-  `useUnknownInCatchVariables`, flag the config (tsconfig.md), not every catch site.
-
-## Failure Design (public APIs and module seams)
-
-- Expected, recoverable outcomes (not-found, validation failure, conflict) signaled by
-  `throw` so every caller needs try/catch for normal control flow. Severity: **Medium**.
-  Fix: return a discriminated result: `{ ok: true, value } | { ok: false, error }` —
-  exhaustiveness-checkable, contract visible in the signature. Keep `throw` for
-  unexpected/unrecoverable failures.
-- Exported function's failure modes not derivable from its signature or docs — callers
-  can't discriminate errors except by message string matching. Severity: **Medium**.
-  Fix: typed error classes or result unions; never promise message-string stability.
-- Matching on `e.message` content to branch behavior. Severity: **High** — breaks on
-  any wording change.
-- `process.exit()` inside library/domain code. Severity: **High** — only entry points
-  may decide to terminate.
+checks:
+- silent failures — an empty catch block, `catch (e) {}`, with no comment explaining it: High
+- silent failures — a `catch` that logs and continues on a path whose caller assumes success: Medium, High when the swallowed error leaves state partly mutated
+- silent failures — `Promise.allSettled()` results read with no check for `status === 'rejected'`: Medium
+- silent failures — fire-and-forget cleanup, `void cleanup()`, whose failure corrupts the next run: Medium
+- throw hygiene — throwing a non-Error value, a string or an object: Medium, stack traces and `instanceof` both depend on a real Error
+- throw hygiene — a custom error class that does not extend `Error`: Medium
+- throw hygiene — a rethrow discarding the original, `catch (e) { throw new Error(msg) }`: Medium, use `throw new Error(msg, { cause: e })`, ES2022
+- throw hygiene — an error message with no operational context, naming neither the operation nor the input id: Low
+- catch discipline — a broad `catch` around a large block treating a `TypeError` or `ReferenceError` as an expected failure: Medium, it hides a bug as a handled condition
+- catch discipline — fix: a broad catch, by narrowing the try to the failing operation and rethrowing the unexpected error types
+- catch discipline — note: `catch (e)` where `e` is read as if typed, `e.message` with no narrowing: see the unknown discipline checks in `references/type-safety.md`
+- catch discipline — note: flag the missing `useUnknownInCatchVariables` against the config in `references/tsconfig.md` rather than against every catch site
+- failure design — an expected, recoverable outcome such as not-found, validation failure, or conflict signalled by `throw`: Medium, every caller then needs a try block for normal control flow
+- failure design — fix: a thrown expected outcome, with a discriminated result, `{ ok: true, value } | { ok: false, error }`, and keep `throw` for the unexpected and unrecoverable
+- failure design — an exported function whose failure modes are derivable from neither its signature nor its docs: Medium, callers can only tell errors apart by matching the message string
+- failure design — fix: an opaque failure mode, with a typed error class or a result union, and do not promise message-string stability
+- failure design — branching on the content of `e.message`: High, any wording change breaks it
+- failure design — `process.exit()` inside library or domain code: High, only an entry point may decide to terminate

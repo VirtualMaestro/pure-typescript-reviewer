@@ -171,7 +171,7 @@ git diff -U0 <range> -- '*.ts' '*.mts' '*.cts' | grep '^@@'
 severity_scale:
 - these are the base severities in a scoped mode, before the boost
 - a finding on an unchanged line keeps its severity: it is pre-existing tech debt, and it is informational
-- an Architecture finding uses this scale with the criteria in `references/architecture.md`, under Severity Mapping
+- an Architecture finding uses this scale with the criteria in the `severity_mapping` block of `references/architecture.md`
 
 | Severity | Criteria | Examples |
 |---|---|---|

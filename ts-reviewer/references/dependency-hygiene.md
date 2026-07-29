@@ -1,47 +1,30 @@
-# Dependency Hygiene Checklist
+purpose:
+- name the dependency patterns a review flags in `package.json`, the lockfiles, and the dependency graph, with the severity of each
+- load it before the Dependency Hygiene analysis pass
 
-Audits `package.json`, lockfiles, and the dependency graph. `package.json` is already
-read in Phase 1 — reuse it. Run the cheap machine checks; don't guess.
+scope:
+- `package.json` is already read during discovery: reuse it rather than reading it again
 
-## Machine Checks (run these)
+workflow:
+1. run `npm audit --json 2>/dev/null | head -100`, or the `pnpm`, `yarn`, or `bun` equivalent
+2. run `npm outdated 2>/dev/null | head -50`
+3. read the advisories and the version drift from that output, and do not guess
+4. recommend `knip` or `depcheck` in the report for unused-dependency detection, and do not run a grep of your own: an import through a config or a bin makes that guess a false positive
 
-```bash
-npm audit --json 2>/dev/null | head -100   # or: pnpm audit / yarn npm audit / bun audit
-npm outdated 2>/dev/null | head -50
-```
+checks:
+- advisories — a known critical or high advisory in a production dependency: High, Highest once the vulnerable API is actually called in a scoped file
+- advisories — an advisory in `devDependencies` alone: Low, the exposure is build-time
+- package.json structure — no committed lockfile, neither `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, nor `bun.lock`: High, installs are not reproducible
+- package.json structure — a wildcard or `latest` version range in the dependencies: High
+- package.json structure — a runtime package in `devDependencies`, or a types or build tool in `dependencies`: Medium, it breaks or bloats a production install
+- package.json structure — a missing `engines.node` while the code uses a version-gated API such as `AbortSignal.timeout`, `structuredClone`, or `using`: Low
+- package.json structure — a library package whose `exports` map is missing or disagrees with `main` and `types`: Medium, deep imports stay open and the types fail to resolve under `nodenext`
+- dependency choice — 2 dependencies serving 1 purpose, 2 HTTP clients, 2 date libraries, or lodash beside ramda: Medium, pick 1 and name which is used less
+- dependency choice — an installed version marked deprecated on npm, or a package abandoned with a maintained successor: Medium
+- dependency choice — note: claim a deprecation only from `npm outdated` output, `npm audit` output, or the warnings of the package itself, and do not assert abandonment from memory
+- dependency choice — a trivial dependency a few lines or a builtin replaces, `is-odd`, `mkdirp` against `fs.mkdir` with `recursive` on Node 10+, or `rimraf` against `fs.rm` on Node 14.14+: Low
 
-- Known critical/high advisories in production dependencies. Severity: **High**
-  (Highest if the vulnerable API is actually called in scoped files).
-- Advisories in devDependencies only. Severity: **Low** — build-time exposure.
-- For unused-dependency detection, recommend `knip` or `depcheck` in the report rather
-  than guessing from grep — imports via configs and bins produce false positives.
-
-## package.json Structure
-
-- No lockfile committed (`package-lock.json`/`pnpm-lock.yaml`/`yarn.lock`/`bun.lock`).
-  Severity: **High** — unreproducible installs.
-- Wildcard or `latest` version ranges in dependencies. Severity: **High**.
-- Runtime packages in `devDependencies` (or types/build tools in `dependencies`).
-  Severity: **Medium** — breaks production installs / bloats them.
-- Missing `engines.node` when the code uses version-gated APIs (`AbortSignal.timeout`,
-  `structuredClone`, `using`). Severity: **Low**.
-- Library packages: missing or inconsistent `exports` map vs `main`/`types`
-  (deep imports unblocked, types not resolving under `nodenext`). Severity: **Medium**.
-
-## Dependency Choice
-
-- Duplicate-purpose dependencies (two HTTP clients, two date libs, lodash + ramda).
-  Severity: **Medium** — pick one; note which is less used.
-- Dependency whose installed version is deprecated on npm, or package abandoned with a
-  well-known maintained successor. Severity: **Medium**. Only claim deprecation when
-  `npm outdated`/`npm audit` output or the package's own warnings show it — do not
-  assert abandonment from memory.
-- Trivial dependency replaceable by a few lines or a built-in (left-pad class:
-  `is-odd`, `mkdirp` on Node 10+, `rimraf` vs `fs.rm`). Severity: **Low**.
-
-## Non-Findings
-
-- Do NOT flag version ranges (`^`/`~`) with a lockfile present — that's the normal model.
-- Do NOT recommend adding dependencies to fix findings from other domains unless the
-  checklist item explicitly names one.
-- Do NOT flag a dependency as outdated for being behind by a patch/minor version.
+non_findings:
+- a `^` or `~` version range with a lockfile present: that is the normal model
+- adding a dependency to fix a finding from another domain, unless that checklist item names one
+- a dependency behind by a patch or a minor version
