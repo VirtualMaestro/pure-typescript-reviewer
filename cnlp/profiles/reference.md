@@ -51,6 +51,7 @@ custom_sections:
 - severity_mapping
 - fixability
 - dependency_classification
+- confidence_scale
 - baseline_verdicts
 - report_format
 - test_runners

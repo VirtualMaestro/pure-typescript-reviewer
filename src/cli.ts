@@ -59,11 +59,8 @@ async function main() {
     const result = await scaffoldTsReviewerSkill({ cwd, skillName, targetDir });
 
     for (const e of result.entries) {
-      const suffix = e.detail ? ` (${e.detail})` : "";
-      process.stdout.write(`${e.action}\t${e.relativePath}${suffix}\n`);
+      process.stdout.write(`${e.action}\t${e.relativePath}\n`);
     }
-
-    if (result.hadConflicts) process.exitCode = 2;
   }
 }
 

@@ -122,7 +122,7 @@ workflow:
 12. identify the entry points: `index.ts`, `main.ts`, the `exports` of `package.json`
 13. collect the context files named in `scope:` when the scope mode is scoped
 14. map the module relationships when Architecture is active: circular imports, deep relative imports, barrel-file cycles, feature slices, public entry points
-15. scan `docs/adr/` for architectural decisions before proposing a change, and skip it silently when the directory is absent
+15. scan `docs/adr/`, `doc/adr/`, `adr/`, and `docs/decisions/` for architectural decisions before proposing a change, and skip it silently when none of them exists
 16. report the discovery summary in the shape of `discovery_summary`
 17. run `npx tsc --noEmit 2>&1 | head -200` over the full project, and report only the errors in the scoped files
 18. run the linter: `npx eslint [files] --format json` or `npx biome check [files] --reporter json`
@@ -278,17 +278,7 @@ report_format:
 
 ## Architecture Opportunities
 
-### TITLE — Severity
-
-- **Files:** relative/path/a.ts, relative/path/b.ts
-- **Problem:** why this causes friction now
-- **Proposed deepening:** what would change
-- **Interface shape:** rough sketch of new interface
-- **Dependency category:** in-process | local-substitutable | remote-owned | true-external
-- **Test strategy:** how tests improve
-- **Benefits:** locality, leverage, test impact
-- **Trade-offs:** what gets harder
-- **Fixability:** auto | needs-confirm | report-only
+<1 entry per candidate, in the shape the `report_format` block of references/architecture.md gives>
 
 ---
 ````

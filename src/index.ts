@@ -1,80 +1,42 @@
+import fs from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 import { listSkillAssetTemplates } from "./paths.js";
-import { readMeta, writeMeta, type ScaffoldMeta } from "./meta.js";
-import { sha256Hex } from "./hash.js";
-import { ensureDir, readFileIfExists, atomicWriteFile } from "./io.js";
-import { decideUpdate } from "./updatePolicy.js";
-import { findAvailableIncomingPath } from "./incoming.js";
+import { ensureDir, atomicWriteFile } from "./io.js";
 
-export type ScaffoldAction = "WROTE" | "UPDATED" | "SKIPPED" | "CONFLICT";
+export type ScaffoldAction = "WROTE" | "UPDATED";
 
 export type ScaffoldEntry = {
   action: ScaffoldAction;
   relativePath: string;
-  detail?: string;
 };
 
 export type ScaffoldResult = {
   entries: ScaffoldEntry[];
-  hadConflicts: boolean;
 };
 
 export async function scaffoldTsReviewerSkill(opts: { cwd: string; skillName: string; targetDir: string }): Promise<ScaffoldResult> {
-  const skillName = opts.skillName;
-  const targetDir = opts.targetDir;
+  const { cwd, skillName, targetDir } = opts;
   await ensureDir(targetDir);
 
-  const metaPath = path.join(targetDir, ".scaffold-meta.json");
-  const meta: ScaffoldMeta = (await readMeta(metaPath)) ?? { version: 1, files: {} };
+  // Provenance file written by <=2.0.0, when the installer tracked hashes to avoid
+  // overwriting local edits. Skill files are generated, so they are always replaced now.
+  await fs.rm(path.join(targetDir, ".scaffold-meta.json"), { force: true });
 
   const entries: ScaffoldEntry[] = [];
-  let hadConflicts = false;
 
   for (const t of listSkillAssetTemplates(skillName)) {
-    const relativePath = path.relative(opts.cwd, path.join(targetDir, t.fileName)).replace(/\\/g, "/");
     const dstPath = path.join(targetDir, t.fileName);
+    const action: ScaffoldAction = existsSync(dstPath) ? "UPDATED" : "WROTE";
 
-    const desired = t.content;
-    const desiredHash = sha256Hex(desired);
+    await atomicWriteFile(dstPath, t.content);
 
-    const existing = await readFileIfExists(dstPath);
-    const existingHash = existing === null ? null : sha256Hex(existing);
-    const lastWrittenHash = meta.files[t.fileName]?.lastWrittenHash ?? null;
-
-    const decision = decideUpdate({ existingHash, lastWrittenHash });
-
-    if (decision.kind === "write") {
-      await atomicWriteFile(dstPath, desired);
-      meta.files[t.fileName] = { lastWrittenHash: desiredHash };
-      entries.push({ action: "WROTE", relativePath });
-      continue;
-    }
-
-    if (decision.kind === "overwrite") {
-      await atomicWriteFile(dstPath, desired);
-      meta.files[t.fileName] = { lastWrittenHash: desiredHash };
-      entries.push({ action: "UPDATED", relativePath });
-      continue;
-    }
-
-    if (decision.kind === "skip") {
-      entries.push({ action: "SKIPPED", relativePath });
-      continue;
-    }
-
-    // conflict
-    hadConflicts = true;
-    const incomingPath = await findAvailableIncomingPath(dstPath);
-    await atomicWriteFile(incomingPath, desired);
     entries.push({
-      action: "CONFLICT",
-      relativePath,
-      detail: path.basename(incomingPath),
+      action,
+      relativePath: path.relative(cwd, dstPath).replace(/\\/g, "/"),
     });
   }
 
-  await writeMeta(metaPath, meta);
-
-  return { entries, hadConflicts };
+  return { entries };
 }
