@@ -22,7 +22,7 @@
     "build": "tsc -p tsconfig.json",
     "prepublishOnly": "npm run build && npm test",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run typecheck && node --test cnlp/skill-format.test.js",
+    "test": "npm run typecheck && node --test cnlp/skill-format.test.js tools.test.mjs",
     "dev": "npm run build && node --enable-source-maps dist/cli.js"
   },
   "keywords": [
