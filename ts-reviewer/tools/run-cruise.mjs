@@ -14,13 +14,17 @@ import { classifyRun } from "./classify-run.mjs";
 
 const TOOL = "dependency-cruiser@18.1.0";
 const EXCLUDE = "^(node_modules|node:)";
-const DECLARATIONS = [".dependency-cruiser.cjs", ".dependency-cruiser.js", ".dependency-cruiser.json"];
+const PROJECT_DECLARATIONS = [".dependency-cruiser.cjs", ".dependency-cruiser.js", ".dependency-cruiser.json"];
 
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i === -1 ? d : process.argv[i + 1]; };
 const repo = path.resolve(arg("repo", process.cwd()));
 const projectsFile = path.resolve(repo, arg("projects", "code-smells/projects.json"));
 const outDir = path.resolve(repo, arg("out", "code-smells"));
 const base = arg("base", "");
+const declarations = [
+  ...PROJECT_DECLARATIONS.map((name) => path.join(repo, name)),
+  path.join(outDir, "suggested.dependency-cruiser.cjs"),
+];
 
 const { projects } = JSON.parse(readFileSync(projectsFile, "utf8"));
 mkdirSync(path.join(outDir, "graphs"), { recursive: true });
@@ -35,7 +39,7 @@ const MINIMUM = [
   { name: "not-to-unresolvable", severity: "error", from: {}, to: { couldNotResolve: true } },
 ];
 
-const declaration = DECLARATIONS.map((d) => path.join(repo, d)).find((p) => existsSync(p));
+const declaration = declarations.find((candidate) => existsSync(candidate));
 let forbidden = MINIMUM;
 let rulesFrom = "the minimum ruleset";
 if (declaration) {
@@ -78,12 +82,15 @@ const projectModules = path.join(repo, "node_modules");
 const nodePath = existsSync(path.join(projectModules, "typescript"))
   ? projectModules
   : process.env.NODE_PATH || projectModules;
+const localCruise = path.join(projectModules, ".bin", process.platform === "win32" ? "depcruise.cmd" : "depcruise");
 
 function cruise(label, extraArgs, project) {
-  const args = ["-y", TOOL, "--config", ruleset, "--ts-config", project.config, ...extraArgs, ...project.sourceRoots];
+  const toolArgs = ["--config", ruleset, "--ts-config", project.config, ...extraArgs, ...project.sourceRoots];
+  const args = existsSync(localCruise) ? toolArgs : ["-y", TOOL, ...toolArgs];
+  const shell = process.platform === "win32";
   const started = Date.now();
-  const r = spawnSync("npx", args.map((a) => JSON.stringify(a)), {
-    cwd: repo, encoding: "utf8", shell: true, maxBuffer: 256 * 1024 * 1024,
+  const r = spawnSync(existsSync(localCruise) ? localCruise : "npx", shell ? args.map((a) => JSON.stringify(a)) : args, {
+    cwd: repo, encoding: "utf8", shell, maxBuffer: 256 * 1024 * 1024,
     env: { ...process.env, NODE_PATH: nodePath },
   });
   const run = { label, exitCode: r.status, stdout: r.stdout ?? "", stderr: r.stderr ?? "", ms: Date.now() - started };
@@ -113,7 +120,8 @@ for (const project of projects) {
   const id = project.config.replace(/[/.]/g, "_");
 
   const metrics = cruise(`depcruise metrics ${project.config}`, ["--metrics", "--output-type", "json"], project);
-  if (metrics.output === "valid JSON") writeFileSync(path.join(outDir, "graphs", `${id}.json`), metrics.stdout, "utf8");
+  const graph = metrics.output === "valid JSON" ? JSON.parse(metrics.stdout) : null;
+  if (graph) writeFileSync(path.join(outDir, "graphs", `${id}.json`), metrics.stdout, "utf8");
 
   const err = cruise(`depcruise err ${project.config}`, ["--output-type", "err"], project);
 
@@ -125,8 +133,66 @@ for (const project of projects) {
     ? cruise(`depcruise affected ${project.config}`, ["--affected", base, "--output-type", "text"], project)
     : null;
 
-  results.push({ project, runs: [metrics, err, diagram, ...(affected ? [affected] : [])] });
+  results.push({ project, graph, runs: [metrics, err, diagram, ...(affected ? [affected] : [])] });
 }
+
+// Derived, bounded tables are the semantic pass input. The raw graphs stay on disk.
+const table = (headers, rows) => [
+  `| ${headers.join(" | ")} |`,
+  `|${headers.map(() => "---").join("|")}|`,
+  ...rows.map((row) => `| ${row.map((cell) => String(cell).replaceAll("|", "\\|")).join(" | ")} |`),
+];
+const moduleRows = new Map();
+const folderRows = new Map();
+const cycles = new Set();
+const orphans = new Set();
+const crossDirectory = new Set();
+const violations = new Set();
+const projectRows = [];
+for (const { project, graph } of results) {
+  if (!graph) continue;
+  const modules = graph.modules ?? [];
+  const roots = [...project.sourceRoots].sort((a, b) => b.length - a.length);
+  const area = (source) => {
+    const root = roots.find((candidate) => source === candidate || source.startsWith(`${candidate}/`));
+    const rest = root ? source.slice(root.length).replace(/^\//, "") : source;
+    return `${root ? `${root}/` : ""}${rest.split("/")[0]}`;
+  };
+  for (const module of modules) {
+    const fanIn = module.dependents?.length ?? 0;
+    const previous = moduleRows.get(module.source);
+    if (!previous || previous[1] < fanIn) moduleRows.set(module.source, [module.source, fanIn, module.dependencies?.length ?? 0, module.instability ?? ""]);
+    if (module.orphan) orphans.add(module.source);
+    for (const dependency of module.dependencies ?? []) {
+      if (!dependency.resolved) continue;
+      if (dependency.circular) cycles.add(`${module.source} → ${dependency.resolved}`);
+      if (area(module.source) !== area(dependency.resolved)) crossDirectory.add(`${module.source} → ${dependency.resolved}`);
+    }
+  }
+  for (const folder of graph.folders ?? []) {
+    const previous = folderRows.get(folder.name);
+    if (!previous || previous[2] < folder.afferentCouplings) {
+      folderRows.set(folder.name, [folder.name, folder.moduleCount, folder.afferentCouplings, folder.efferentCouplings, folder.instability]);
+    }
+  }
+  for (const violation of graph.summary?.violations ?? []) {
+    violations.add(`${violation.rule?.name ?? "unnamed"} | ${violation.from ?? ""} | ${violation.to ?? ""}`);
+  }
+  projectRows.push([project.config, modules.length, graph.summary?.totalDependenciesCruised ?? 0, modules.filter((m) => m.orphan).length]);
+}
+const topModules = [...moduleRows.values()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 20);
+const topFolders = [...folderRows.values()].sort((a, b) => b[2] - a[2] || a[0].localeCompare(b[0])).slice(0, 20);
+const metricsLines = [
+  "# Architecture metrics", "",
+  "## Projects", "", ...table(["Project", "Modules", "Edges", "Orphans"], projectRows), "",
+  "## Top modules by fan-in", "", ...table(["Module", "Fan-in", "Fan-out", "Instability"], topModules), "",
+  "## Top folders by fan-in", "", ...table(["Folder", "Modules", "Afferent", "Efferent", "Instability"], topFolders), "",
+  "## Cycles", "", ...(cycles.size ? [...cycles].slice(0, 20).map((edge) => `- ${edge}`) : ["- none"]), "",
+  "## Orphans", "", ...(orphans.size ? [...orphans].slice(0, 20).map((source) => `- ${source}`) : ["- none"]), "",
+  "## Declared rule violations", "", ...(violations.size ? [...violations].slice(0, 50).map((item) => `- ${item}`) : ["- none"]), "",
+  "## Cross-directory edges", "", ...(crossDirectory.size ? [...crossDirectory].slice(0, 50).map((edge) => `- ${edge}`) : ["- none"]), "",
+];
+writeFileSync(path.join(outDir, "metrics.md"), metricsLines.join("\n"), "utf8");
 
 // ── summary ─────────────────────────────────────────────────────────────────
 const lines = [`# Cruise summary`, ``, `Ruleset: ${rulesFrom}`, ``,

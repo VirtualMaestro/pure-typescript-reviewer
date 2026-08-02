@@ -28,13 +28,15 @@ inputs:
 - the reference checklists under `references/`
 
 preconditions:
-- `code-smells.md` exists before fix mode runs: it is the work plan, and fix stops with an error when it is absent
+- `code-smells/report.md` exists before fix mode runs: it is the work plan, and fix stops with an error when it is absent
 
 scope:
 - `.ts`, `.mts`, and `.cts` files are reviewed alike
 - `.d.ts` files are reviewed by the Type Safety and Config domains only: a declaration has no runtime behavior
 - `.tsx` is out of scope
 - the analysis scope in a scoped mode is the diff file list, and the reading scope is wider
+- `--affected` widens Architecture evidence to modules reaching a changed module, and does not widen the analysis scope
+- anchor each finding to 1 file, and set `in_diff: true` only when that file is in the diff list
 - read as read-only context: `tsconfig.json`, the configs it extends, and `package.json`
 - read as read-only context: the files the scoped files import 1 level deep, and the shared types in `types.ts`, `*.d.ts`, `interfaces/`, `shared/`
 
@@ -57,11 +59,15 @@ forbidden_behaviors:
 - do not emit the same file and line twice
 - do not boost severity in `full` scope mode: all code is treated alike
 - do not flag a config issue in a scoped mode unless `tsconfig.json` is in the diff
+- do not download and execute a missing analysis tool before the operator approves it once at discovery
+- do not run `npm install` or `npm uninstall` for analysis: use an approved pinned-major `npx -y` command, or record the pre-pass as skipped
 
 outputs:
-- `code-smells.md` in the project root: the scan report, and the work plan fix reads
-- the `## Architecture Opportunities` section of that report, only when Architecture is active and at least 1 candidate is found
-- the audit trail in `code-smells.md` when any issue remains: BEFORE/AFTER for each fixed issue, a status tag for each failed, reverted, or skipped issue, the original entry for each untouched issue
+- `code-smells/report.md` in the project root: the scan report, and the work plan fix reads
+- `code-smells/knip.json`, `projects.json`, `co-change.md`, `cruise-summary.md`, `metrics.md`, and graph and diagram directories when Architecture is active
+- `code-smells/suggested.dependency-cruiser.cjs` when prose declares dependency rules and no machine-readable declaration owns them
+- the `## Architecture Opportunities` section of the report only when Architecture is active and at least 1 confirmed finding exists
+- the audit trail in `code-smells/report.md` when any issue remains: BEFORE/AFTER for each fixed issue, a status tag for each failed, reverted, or skipped issue, the original entry for each untouched issue
 - a regression test for each fix that is testable
 
 run_modes:
@@ -119,40 +125,44 @@ workflow:
 9. audit the config that governs the files in scope, and name that config in the summary
 10. read the linter config: `eslint.config.*`, `.eslintrc.*`, `biome.json`, `deno.json`
 11. read `package.json` for the dependencies and the module type, and verify the TypeScript version, `engines.node`, and `@types/node` against `target_stack`
-12. identify the entry points: `index.ts`, `main.ts`, the `exports` of `package.json`
-13. collect the context files named in `scope:` when the scope mode is scoped
-14. map the module relationships when Architecture is active: circular imports, deep relative imports, barrel-file cycles, feature slices, public entry points
-15. scan `docs/adr/`, `doc/adr/`, `adr/`, and `docs/decisions/` for architectural decisions before proposing a change, and skip it silently when none of them exists
-16. report the discovery summary in the shape of `discovery_summary`
+12. identify declared entry points from `package.json#exports`, `main`, `bin`, and the `start`, `dev`, and `serve` scripts
+13. when Architecture is active, inspect local Knip and dependency-cruiser binaries and ask once before running either missing tool through pinned-major `npx -y`
+14. collect the context files named in `scope:` when the scope mode is scoped
+15. identify feature slices and public entry points when Architecture is active, leaving graph discovery to its mechanical pre-pass
+16. collect machine-readable dependency rules and prose from ADR directories, `ARCHITECTURE.md`, README, and `CONTRIBUTING.md`
 17. run `npx tsc --noEmit 2>&1 | head -200` over the full project, and report only the errors in the scoped files
 18. run the linter: `npx eslint [files] --format json` or `npx biome check [files] --reporter json`
 19. query the TypeScript LSP over MCP when it is reachable, then merge and deduplicate against the compiler output
 20. triage every compiler and linter diagnostic through `severity_mapping`
 21. read the reference file named in `domains` before each analysis pass
-22. run only the passes whose domain is in the active domain set, as sub-agents shaped by `subagent_template` or one domain at a time
-23. give every agent all the scoped files when scoped files <= 20, and split by directory above that, with the shared types visible to every agent
-24. re-read the exact lines in the current file state before a finding enters the report
-25. read the callers to verify a data flow a finding rests on, or mark its problem statement with "if <condition>" and cap its severity at Medium
-26. downgrade a flagged non-High pattern that appears 5+ times across the codebase by 1 level, and report it once as a Recurring Pattern
-27. boost a finding carrying `in_diff: true` by 1 level in a scoped mode, and mark it `High [boosted, was Medium — new code]`
-28. deduplicate the findings on the same file, line, and issue, keeping 1
-29. merge the findings 2 domains raise on the same file and line into 1 entry attributing both categories, at the higher severity
-30. consolidate 3+ identical issues into 1 Recurring Pattern entry
-31. keep the top 15 by severity and impact when a single domain produces more than 25 Medium or Low findings, and consolidate the rest into Recurring Pattern entries with their counts
-32. write `code-smells.md` in the shape of `report_format`
-33. sort by severity group, then category, then file path, and place `in_diff: true` before pre-existing in a scoped mode
-34. show the top 10 and summarize the rest in a table when Medium and Low together hold more than 15 issues
-35. recommend that the operator adds `code-smells.md` to `.gitignore`: it is a review artifact
-36. read `references/fix-workflow.md` before fix mode executes: it holds the complete protocol
-37. detect the test runner and run the baseline tests
-38. fix the issues file by file, and run `tsc --noEmit` after each file
-39. run the linter and fix the lint errors it reports
-40. run the full test suite, compare it against the baseline, and fix the regressions
-41. repeat the compiler, linter, and test verification with verification iterations <= 5
-42. update `code-smells.md`: remove what is fixed, mark what failed
-43. show the scan summary in auto mode, and ask the operator whether to proceed with the fix
-44. re-scan after the fix in auto mode with full scan-fix cycles <= 2, and stop when issues persist after the second
-45. delete `code-smells.md` and report success when every issue is fixed
+22. run the mechanical pre-pass in `references/architecture.md` when Architecture is active, passing the approved tool decision and scoped base
+23. report the discovery summary in the shape of `discovery_summary`, including skipped and clean mechanical results
+24. run only the passes whose domain is in the active domain set, as sub-agents shaped by `subagent_template` or one domain at a time
+25. give every agent all the scoped files when scoped files <= 20, and split by directory above that, with the shared types visible to every agent
+26. re-read the exact lines in the current file state before a finding enters the report
+27. read the callers to verify a data flow a finding rests on, or mark its problem statement with "if <condition>" and cap its severity at Medium
+28. downgrade a flagged non-High pattern that appears 5+ times across the codebase by 1 level, and report it once as a Recurring Pattern
+29. boost a finding carrying `in_diff: true` by 1 level in a scoped mode, and mark it `High [boosted, was Medium — new code]`
+30. deduplicate the findings on the same file, line, and issue, keeping 1
+31. merge the findings 2 domains raise on the same file and line into 1 entry attributing both categories, at the higher severity
+32. consolidate 3+ identical issues into 1 Recurring Pattern entry
+33. keep the top 15 by severity and impact when a single domain produces more than 25 Medium or Low findings, and consolidate the rest into Recurring Pattern entries with their counts
+34. write `code-smells/report.md` in the shape of `report_format`
+35. sort by severity group, then category, then file path, and place `in_diff: true` before pre-existing in a scoped mode
+36. show the top 10 and summarize the rest in a table when Medium and Low together hold more than 15 issues
+37. recommend that the operator adds `code-smells/` to `.gitignore`: it holds review artifacts
+38. read `references/fix-workflow.md` before fix mode executes: it holds the complete protocol
+39. detect the test runner and run the baseline tests
+40. fix the issues file by file, and run `tsc --noEmit` after each file
+41. run the linter and fix the lint errors it reports
+42. run the full test suite, compare it against the baseline, and fix the regressions
+43. repeat the compiler, linter, and test verification with verification iterations <= 5
+44. rerun the Architecture mechanical pre-pass on the fixed tree when Architecture is active
+45. update `code-smells/report.md`: remove what is fixed, mark what failed
+46. show the scan summary in auto mode, and ask the operator whether to proceed with the fix
+47. re-scan after the fix in auto mode with full scan-fix cycles <= 2, and stop when issues persist after the second
+48. delete `code-smells/report.md` and report success when every issue is fixed
+49. retain the remaining `code-smells/` artifacts, state what they contain, and remove them only after the operator confirms
 
 scope_commands:
 ```bash
@@ -161,6 +171,7 @@ npx glob '**/*.{ts,mts,cts}' --ignore '**/node_modules/**'
 # or: git ls-files '*.ts' '*.mts' '*.cts'
 
 # uncommitted — staged, unstaged, and untracked
+BASE=HEAD
 git diff --name-only HEAD -- '*.ts' '*.mts' '*.cts'
 git ls-files --others --exclude-standard -- '*.ts' '*.mts' '*.cts'
 
@@ -170,6 +181,7 @@ git diff --name-only "$BASE"...HEAD -- '*.ts' '*.mts' '*.cts'
 git diff --name-only HEAD -- '*.ts' '*.mts' '*.cts'
 
 # commits:N — the last N commits
+BASE=HEAD~N
 git diff --name-only HEAD~N..HEAD -- '*.ts' '*.mts' '*.cts'
 
 # the changed hunks, for the severity boost in a scoped mode
@@ -211,6 +223,15 @@ Strict mode: yes / partial / no
 Linter: eslint / biome / none
 Test runner: vitest / jest / mocha / node:test / none
 Files in scope: <N> .ts files (+ <M> context files)
+Architecture projects: <config and source roots, when active>
+Architecture tools: <local or approved npx versions, when active>
+Mechanical results: <module and edge counts, cycles, orphans, and co-change pairs; name clean zeros>
+Skipped pre-passes: <tool and reason, or none>
+Speculative candidates: <names only, or none>
+Declared dependency rules:
+| Rule | Source file:line | Directories |
+|---|---|---|
+| <rule, or none> | <path:line> | <mapping> |
 ```
 
 subagent_template:

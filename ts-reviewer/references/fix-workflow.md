@@ -7,13 +7,13 @@ scope:
 - the testing strategy for an architecture fix is owned by `references/architecture.md`
 
 read_first:
-- `code-smells.md` exists in the project root, and a missing report stops the run with the error "No scan report found. Run scan first."
+- `code-smells/report.md` exists in the project root, and a missing report stops the run with the error "No scan report found at code-smells/report.md. Run scan first; the report path changed in v3."
 - the project is inside a git repository, so a change can be reverted
 - recommend that the operator commits or stashes uncommitted work before the fix runs, which leaves `git diff` and `git checkout -- .` usable to review and revert
 - the baseline taken in step 3 decides what counts as a regression: a test failing before the fixes is pre-existing and stays out of the work
 
 workflow:
-1. read `code-smells.md` and extract every issue into a work list
+1. read `code-smells/report.md` and extract every issue into a work list
 2. group the issues by file path, and sort them by line number descending inside each file, so a fix lower in the file does not shift the lines above it
 3. build the work plan
 ```
@@ -77,14 +77,16 @@ Iteration 3: Fixed tsc error. All tests pass. Clean.
 27. stop fixing once the fifth iteration ends with the compiler, the linter, or the suite still not clean, leave the code as it stands, and add a Stabilization section to the report listing the unresolved regressions for the operator
 28. show the operator what a `needs-confirm` architecture finding would change, and describe the reorganization or the interface change
 29. apply an approved `needs-confirm` finding through the same file-by-file compiler loop, and mark a rejected one `[SKIPPED: user rejected]`
-30. delete `code-smells.md` when every issue is fixed, and tell the operator "All N issues fixed. Report deleted. Run scan again to verify."
-31. rewrite `code-smells.md` in the shape of `report_format` when any issue remains, carrying both what was fixed and what was not
-32. leave every change in the working tree, unstaged and uncommitted, including the new regression test files
+30. rerun Knip, dependency-cruiser, and co-change through the Architecture workflow when the report contains architecture findings
+31. delete `code-smells/report.md` when every issue is fixed, and tell the operator "All N issues fixed. Report deleted. Run scan again to verify."
+32. keep `code-smells/` after deleting the report, state what it contains, and ask before removing the directory
+33. rewrite `code-smells/report.md` in the shape of `report_format` when any issue remains, carrying both what was fixed and what was not
+34. leave every change in the working tree, unstaged and uncommitted, including the new regression test files
 
 forbidden_behaviors:
 - do not commit and do not stage: the operator reviews and decides
 - do not delete a file unless the report flagged the whole file as dead code
-- do not modify a file outside the issues in `code-smells.md`, apart from a cascading change such as an import updated after a type rename
+- do not modify a file outside the issues in `code-smells/report.md`, apart from a cascading change such as an import updated after a type rename
 - do not change what the code does: a fix changes how it does it, and only a security fix intentionally changes behaviour, such as validation that now rejects malicious input
 - do not refactor a whole file because of 1 issue: fix exactly what the report names
 - do not apply an ambiguous or risky fix: mark it `[SKIPPED: requires manual review]` and move on, since skipping costs less than breaking the build

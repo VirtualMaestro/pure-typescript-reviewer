@@ -92,6 +92,7 @@ test("run-cruise passes several source roots as separate arguments and keeps the
   run(DISCOVER, [], dir);
   const projects = run(DISCOVER, [], dir);
   writeFileSync(path.join(dir, "projects.json"), projects, "utf8");
+  write(dir, "out/suggested.dependency-cruiser.cjs", "module.exports = { forbidden: [{ name: 'no-circular', severity: 'warn', from: {}, to: { circular: true } }] };\n");
   run(RUN_CRUISE, ["--projects", "projects.json", "--out", "out"], dir);
 
   const graph = JSON.parse(readFileSync(path.join(dir, "out", "graphs", "tsconfig_json.json"), "utf8"));
@@ -105,6 +106,11 @@ test("run-cruise passes several source roots as separate arguments and keeps the
 
   const summary = readFileSync(path.join(dir, "out", "cruise-summary.md"), "utf8");
   assert.doesNotMatch(summary, /failed/, "a real graph is not reported as a failed pre-pass");
+  assert.match(summary, /suggested\.dependency-cruiser\.cjs/, "prose-derived rules feed the cruise without changing the project config");
+
+  const metrics = readFileSync(path.join(dir, "out", "metrics.md"), "utf8");
+  assert.match(metrics, /Top modules by fan-in/, "the semantic pass gets derived tables instead of a raw graph");
+  assert.match(metrics, /scripts\/build\.ts|src\/index\.ts/, "the derived table names cruised modules");
 
   rmSync(dir, { recursive: true, force: true });
 });

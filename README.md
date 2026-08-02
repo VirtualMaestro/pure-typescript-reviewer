@@ -10,7 +10,7 @@ Three modes, one skill:
 
 | Mode | What happens |
 |---|---|
-| **scan** | Analyzes the codebase and writes a prioritized report to `code-smells.md` |
+| **scan** | Analyzes the codebase and writes a prioritized report to `code-smells/report.md` |
 | **fix** | Reads the report and applies fixes file-by-file with tsc/lint/test verification |
 | **auto** | Runs scan, asks you to confirm, fixes everything, deletes the report if clean |
 
@@ -81,7 +81,8 @@ Find issues in this project
 Audit the codebase for security and type safety problems
 ```
 
-Claude will analyze the project and write a report to `code-smells.md` in the project root.
+Claude will analyze the project and write a report to `code-smells/report.md` in the project root.
+With Architecture active, the same directory also holds project discovery, Knip, graph, metric, co-change, rule, and Mermaid artifacts.
 
 #### Domain flags
 
@@ -114,7 +115,7 @@ After reviewing the scan report, ask Claude to fix the issues:
 Fix the issues from the report
 ```
 ```
-Apply fixes from code-smells.md
+Apply fixes from code-smells/report.md
 ```
 
 The fix workflow:
@@ -124,7 +125,7 @@ The fix workflow:
 4. Runs linter, fixes lint errors
 5. Runs full test suite, compares with baseline, fixes any regressions it caused
 6. Repeats verification up to 5 iterations
-7. Updates the report: if all fixed → deletes `code-smells.md`; if some remain → keeps it as an audit trail with BEFORE/AFTER diffs for every fix
+7. Updates the report: if all fixed → deletes `code-smells/report.md`; if some remain → keeps it as an audit trail with BEFORE/AFTER diffs for every fix
 
 **Important:** fix never commits or stages anything. You review the changes and decide what to keep.
 
@@ -238,29 +239,30 @@ The test catches a check line that lost its severity, a block the profile does n
 
 ### Scan mode
 
-1. **Discovery** — detects domain flags, maps the project, reads tsconfig.json, detects linter and test runner. If architecture is active, also maps module relationships and checks for `docs/adr/`.
+1. **Discovery** — detects domain flags, maps the project, reads tsconfig.json, detects linter and test runner, and asks once before downloading a missing architecture tool.
 2. **Diagnostics** — runs `tsc --noEmit`, linter, and LSP diagnostics (if available)
-3. **Analysis** — specialized passes for each active domain (sub-agents in Claude Code, sequential in Claude.ai), each with its own checklist. Every finding passes an Evidence Protocol: verified against the actual file content, confidence-gated, version-gated against the project's TS/runtime.
-4. **Report** — deduplicates, applies severity boost (scoped modes), consolidates recurring patterns, enforces a noise budget, writes `code-smells.md`. Architecture findings appear in a separate `## Architecture Opportunities` section at the end.
+3. **Architecture pre-pass** — when active, writes bounded Knip, graph, metric, co-change, rule, and Mermaid artifacts under `code-smells/`.
+4. **Analysis** — specialized passes judge the candidates against the active checklists; tool output is never a finding by itself.
+5. **Report** — deduplicates, applies severity boost (scoped modes), consolidates recurring patterns, enforces a noise budget, writes `code-smells/report.md`. Architecture findings appear in a separate `## Architecture Opportunities` section at the end.
 
 ### Fix mode
 
-1. Parses `code-smells.md` as the work plan
+1. Parses `code-smells/report.md` as the work plan
 2. Captures test baseline (runs tests before changes)
 3. Applies fixes bottom-to-top within each file (so line numbers don't shift)
 4. Writes regression tests for each testable fix
 5. Runs `tsc --noEmit` after each file
 6. Full verification loop: tsc + linter + test suite (max 5 iterations)
 7. Compares test results with baseline — only fixes regressions it caused
-8. Updates or deletes the report
+8. Updates or deletes the report, keeps the remaining `code-smells/` artifacts, and asks before removing them
 
 ## Tips
 
-- **Add `code-smells.md` to `.gitignore`** — it's a review artifact, not part of your source code.
+- **Add `code-smells/` to `.gitignore`** — it contains review artifacts, not source code.
 
 - **Commit before running fix** — so you can `git diff` to review changes and `git checkout -- .` to revert if needed.
 
-- **Edit the report before fix** — since fix uses `code-smells.md` as its work plan, you can delete issues you don't want fixed, change severities, or add notes before running fix.
+- **Edit the report before fix** — since fix uses `code-smells/report.md` as its work plan, you can delete issues you don't want fixed, change severities, or add notes before running fix.
 
 - **Scoped review for PRs** — `"review my branch against main"` is the most practical mode for day-to-day use. Full codebase audits are better suited for periodic health checks.
 
