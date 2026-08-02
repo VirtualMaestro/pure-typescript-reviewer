@@ -84,8 +84,13 @@ const nodePath = existsSync(path.join(projectModules, "typescript"))
   : process.env.NODE_PATH || projectModules;
 const localCruise = path.join(projectModules, ".bin", process.platform === "win32" ? "depcruise.cmd" : "depcruise");
 
+// `--ts-config` is absolute on purpose, and a relative path here is not equivalent even though the
+// cwd is the repository: TypeScript resolves the config's own `include` globs against the cwd when
+// the path is relative, so a nested `templates/x/tsconfig.json` with `include: ["src"]` looks for
+// `<repo>/src` and exits TS18003, no inputs found. Every nested project on the first real run failed
+// this way, and every project that passed sat at the repository root.
 function cruise(label, extraArgs, project) {
-  const toolArgs = ["--config", ruleset, "--ts-config", project.config, ...extraArgs, ...project.sourceRoots];
+  const toolArgs = ["--config", ruleset, "--ts-config", path.resolve(repo, project.config), ...extraArgs, ...project.sourceRoots];
   const args = existsSync(localCruise) ? toolArgs : ["-y", TOOL, ...toolArgs];
   const shell = process.platform === "win32";
   const started = Date.now();
@@ -149,9 +154,14 @@ const orphans = new Set();
 const crossDirectory = new Set();
 const violations = new Set();
 const projectRows = [];
+// A project counts as covered when it produced a graph, and nothing else: the graph is what the
+// semantic pass reads, while a failed mermaid or affected step costs a diagram and not an analysis.
+// One predicate, so metrics.md, cruise-summary.md, and the report's coverage cannot disagree.
 for (const { project, graph } of results) {
+  const modules = graph?.modules ?? [];
+  projectRows.push([project.config, graph ? "ok" : "failed", modules.length,
+    graph?.summary?.totalDependenciesCruised ?? 0, modules.filter((m) => m.orphan).length]);
   if (!graph) continue;
-  const modules = graph.modules ?? [];
   const roots = [...project.sourceRoots].sort((a, b) => b.length - a.length);
   const area = (source) => {
     const root = roots.find((candidate) => source === candidate || source.startsWith(`${candidate}/`));
@@ -178,13 +188,12 @@ for (const { project, graph } of results) {
   for (const violation of graph.summary?.violations ?? []) {
     violations.add(`${violation.rule?.name ?? "unnamed"} | ${violation.from ?? ""} | ${violation.to ?? ""}`);
   }
-  projectRows.push([project.config, modules.length, graph.summary?.totalDependenciesCruised ?? 0, modules.filter((m) => m.orphan).length]);
 }
 const topModules = [...moduleRows.values()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 20);
 const topFolders = [...folderRows.values()].sort((a, b) => b[2] - a[2] || a[0].localeCompare(b[0])).slice(0, 20);
 const metricsLines = [
   "# Architecture metrics", "",
-  "## Projects", "", ...table(["Project", "Modules", "Edges", "Orphans"], projectRows), "",
+  "## Projects", "", ...table(["Project", "Status", "Modules", "Edges", "Orphans"], projectRows), "",
   "## Top modules by fan-in", "", ...table(["Module", "Fan-in", "Fan-out", "Instability"], topModules), "",
   "## Top folders by fan-in", "", ...table(["Folder", "Modules", "Afferent", "Efferent", "Instability"], topFolders), "",
   "## Cycles", "", ...(cycles.size ? [...cycles].slice(0, 20).map((edge) => `- ${edge}`) : ["- none"]), "",
@@ -195,18 +204,22 @@ const metricsLines = [
 writeFileSync(path.join(outDir, "metrics.md"), metricsLines.join("\n"), "utf8");
 
 // ── summary ─────────────────────────────────────────────────────────────────
-const lines = [`# Cruise summary`, ``, `Ruleset: ${rulesFrom}`, ``,
-  `| Project | Source roots | Step | Exit | Reading |`, `|---|---|---|---|---|`];
-let failures = 0;
-for (const { project, runs } of results) {
-  for (const run of runs) {
-    if (run.reading.startsWith("failed")) failures++;
-    lines.push(`| ${project.config} | ${project.sourceRoots.join(", ")} | ${run.label.split(" ")[1]} | ${run.exitCode} | ${run.reading} |`);
-  }
+const summaryRows = [];
+let successful = 0;
+for (const { project, graph, runs } of results) {
+  if (graph) successful++;
+  const failed = runs.filter((run) => run.reading.startsWith("failed"));
+  const diagnostics = [...new Set(failed.flatMap((run) => `${run.stderr}\n${run.stdout}`.split(/\r?\n/))
+    .map((line) => line.trim()).filter(Boolean))].slice(0, 3).join(" / ").slice(0, 500);
+  summaryRows.push([project.config, project.sourceRoots.join(", "), graph ? "ok" : "failed",
+    failed.map((run) => run.label.split(" ")[1]).join(", ") || "none", diagnostics || "none"]);
 }
-lines.push(``, failures
-  ? `**${failures} step(s) failed.** A cruise of zero modules is a failed pre-pass, not a clean result: record it as skipped and do not read the empty graph as an absence of coupling.`
-  : `All steps produced a graph. Zero findings from these runs are reportable as mechanical zeros.`);
+const failures = results.length - successful;
+const lines = [`# Cruise summary`, ``, `Ruleset: ${rulesFrom}`, ``,
+  `Coverage: ${successful}/${results.length} projects`, ``,
+  ...table(["Project", "Source roots", "Status", "Failed steps", "Diagnostics"], summaryRows), ``, failures
+    ? `**${failures} project(s) failed.** Record them as skipped and do not read their empty graphs as an absence of coupling.`
+    : `All projects produced graphs. Zero findings from these runs are reportable as mechanical zeros.`];
 
 writeFileSync(path.join(outDir, "cruise-summary.md"), lines.join("\n") + "\n", "utf8");
 console.log(lines.join("\n"));

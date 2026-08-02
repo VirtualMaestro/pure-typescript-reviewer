@@ -61,6 +61,7 @@ forbidden_behaviors:
 - do not flag a config issue in a scoped mode unless `tsconfig.json` is in the diff
 - do not download and execute a missing analysis tool before the operator approves it once at discovery
 - do not run `npm install` or `npm uninstall` for analysis: use an approved pinned-major `npx -y` command, or record the pre-pass as skipped
+- do not rename a report section, field, severity, confidence, or domain: `report_format` and `domains` hold exact identifiers
 
 outputs:
 - `code-smells/report.md` in the project root: the scan report, and the work plan fix reads
@@ -148,21 +149,29 @@ workflow:
 32. consolidate 3+ identical issues into 1 Recurring Pattern entry
 33. keep the top 15 by severity and impact when a single domain produces more than 25 Medium or Low findings, and consolidate the rest into Recurring Pattern entries with their counts
 34. write `code-smells/report.md` in the shape of `report_format`
-35. sort by severity group, then category, then file path, and place `in_diff: true` before pre-existing in a scoped mode
-36. show the top 10 and summarize the rest in a table when Medium and Low together hold more than 15 issues
-37. recommend that the operator adds `code-smells/` to `.gitignore`: it holds review artifacts
-38. read `references/fix-workflow.md` before fix mode executes: it holds the complete protocol
-39. detect the test runner and run the baseline tests
-40. fix the issues file by file, and run `tsc --noEmit` after each file
-41. run the linter and fix the lint errors it reports
-42. run the full test suite, compare it against the baseline, and fix the regressions
-43. repeat the compiler, linter, and test verification with verification iterations <= 5
-44. rerun the Architecture mechanical pre-pass on the fixed tree when Architecture is active
-45. update `code-smells/report.md`: remove what is fixed, mark what failed
-46. show the scan summary in auto mode, and ask the operator whether to proceed with the fix
-47. re-scan after the fix in auto mode with full scan-fix cycles <= 2, and stop when issues persist after the second
-48. delete `code-smells/report.md` and report success when every issue is fixed
-49. retain the remaining `code-smells/` artifacts, state what they contain, and remove them only after the operator confirms
+35. validate the report against `report_format` after writing it, and treat a `warning:` line as a pre-pass outcome the report cannot correct
+```bash
+# SKILL is the directory this file was loaded from.
+SKILL=<the directory this file was loaded from>
+node "$SKILL/tools/validate-report.mjs" --repo . --report code-smells/report.md
+```
+36. correct every named error and retry with report validation iterations <= 2
+37. keep `code-smells/report.md` when the second validation fails, write `> unvalidated: <the first error>` under its title, and name the errors to the operator
+38. sort by severity group, then category, then file path, and place `in_diff: true` before pre-existing in a scoped mode
+39. show the top 10 and summarize the rest in a table when Medium and Low together hold more than 15 issues
+40. recommend that the operator adds `code-smells/` to `.gitignore`: it holds review artifacts
+41. read `references/fix-workflow.md` before fix mode executes: it holds the complete protocol
+42. detect the test runner and run the baseline tests
+43. fix the issues file by file, and run `tsc --noEmit` after each file
+44. run the linter and fix the lint errors it reports
+45. run the full test suite, compare it against the baseline, and fix the regressions
+46. repeat the compiler, linter, and test verification with verification iterations <= 5
+47. rerun the Architecture mechanical pre-pass on the fixed tree when Architecture is active
+48. update `code-smells/report.md`: remove what is fixed, mark what failed
+49. show the scan summary in auto mode, and ask the operator whether to proceed with the fix
+50. re-scan after the fix in auto mode with full scan-fix cycles <= 2, and stop when issues persist after the second
+51. delete `code-smells/report.md` and report success when every issue is fixed
+52. retain the remaining `code-smells/` artifacts, state what they contain, and remove them only after the operator confirms
 
 scope_commands:
 ```bash
@@ -225,6 +234,7 @@ Test runner: vitest / jest / mocha / node:test / none
 Files in scope: <N> .ts files (+ <M> context files)
 Architecture projects: <config and source roots, when active>
 Architecture tools: <local or approved npx versions, when active>
+Architecture coverage: <successful>/<selected>, when active
 Mechanical results: <module and edge counts, cycles, orphans, and co-change pairs; name clean zeros>
 Skipped pre-passes: <tool and reason, or none>
 Speculative candidates: <names only, or none>
@@ -260,6 +270,11 @@ Output JSONL, one object per line:
 ```
 
 report_format:
+- the `##` sections of the block below are the whole set, in that order, and a heading outside it is a renamed section
+- Discovery, Pre-existing Issues, Architecture Opportunities, Verification, and Generated artifacts are optional, and the other 5 are always present
+- `Total issues` counts the `###` findings, the summary-table rows, and the Architecture Opportunities entries, and the severity breakdown counts the same 3
+- a `Recurring Patterns` row is a pattern rather than an issue, and no row of that table is counted
+- a summary table is read by its `Category` and `Location` columns, and a pattern table by its `Pattern` and `Occurrences` columns
 ````markdown
 # TypeScript Code Review Report
 
@@ -268,12 +283,17 @@ report_format:
 **Stack:** TypeScript 5.9.x / ES2024 / Node 24 — matches / <deviation>
 **Scope:** Full / Uncommitted / Branch `x` vs `y` / Last N commits
 **Files analyzed:** N (+ M context)
+**Architecture coverage:** N/M (when active)
 **Total issues:** N (X highest, Y high, Z medium, W low)
 **Severity-boosted:** N (scoped modes only)
 
 ## Summary
 
 <2-3 sentences on codebase health and key patterns>
+
+## Discovery
+
+<optional; the `discovery_summary` block as it was reported>
 
 ## Highest + High Issues
 
@@ -282,7 +302,7 @@ report_format:
 **Category:** cat | **File:** `path` | **Line:** N | **Auto-fixable:** Yes/No | **New code:** Yes/No
 
 ```typescript
-// snippet
+// snippet: 3-7 lines copied from the file, within its own length of the stated line
 ```
 
 **Problem:** explanation
@@ -293,13 +313,36 @@ report_format:
 
 ## Medium Issues
 ## Low Issues
+
+| Issue | Category | Location | Fix |
+|---|---|---|---|
+| title | cat | `path:N` | recommendation |
+
 ## Recurring Patterns
+
+| Pattern | Occurrences | Severity treatment |
+|---|---|---|
+| name | N | what happened to its members |
+
 ## Config Issues
+
+<findings in the shape above, or prose naming where the config findings already sit>
+
 ## Pre-existing Issues (scoped modes only)
 
 ## Architecture Opportunities
 
-<1 entry per candidate, in the shape the `report_format` block of references/architecture.md gives>
+<optional; 1 entry per candidate, in the shape the `report_format` block of references/architecture.md gives>
+
+## Verification
+
+| Check | Result |
+|---|---|
+| the command that ran | what it reported |
+
+## Generated artifacts
+
+- `<file under code-smells/>` — what it holds
 
 ---
 ````

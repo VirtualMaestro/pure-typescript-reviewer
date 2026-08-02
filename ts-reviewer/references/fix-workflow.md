@@ -10,12 +10,18 @@ read_first:
 - `code-smells/report.md` exists in the project root, and a missing report stops the run with the error "No scan report found at code-smells/report.md. Run scan first; the report path changed in v3."
 - the project is inside a git repository, so a change can be reverted
 - recommend that the operator commits or stashes uncommitted work before the fix runs, which leaves `git diff` and `git checkout -- .` usable to review and revert
-- the baseline taken in step 3 decides what counts as a regression: a test failing before the fixes is pre-existing and stays out of the work
+- the baseline taken in step 9 decides what counts as a regression: a test failing before the fixes is pre-existing and stays out of the work
 
 workflow:
-1. read `code-smells/report.md` and extract every issue into a work list
-2. group the issues by file path, and sort them by line number descending inside each file, so a fix lower in the file does not shift the lines above it
-3. build the work plan
+1. validate the report and stop without changing code when it reports an error, since a `warning:` line names a pre-pass outcome rather than a defect of the report
+```bash
+# SKILL is the directory this file was loaded from.
+SKILL=<the directory this file was loaded from>
+node "$SKILL/tools/validate-report.mjs" --repo . --report code-smells/report.md
+```
+2. read `code-smells/report.md` and extract every issue into a work list
+3. group the issues by file path, and sort them by line number descending inside each file, so a fix lower in the file does not shift the lines above it
+4. build the work plan
 ```
 File: src/auth/token.ts
   - Line 142: [High] Unsafe `as` cast — type-safety
@@ -26,21 +32,21 @@ File: src/api/handler.ts
   - Line 201: [Highest] eval() with user input — security
   - Line 55:  [Medium] Missing exhaustive check — type-safety
 ```
-4. detect the test runner through the signals in `test_runners`, in the order listed there
-5. detect the test file convention: `*.test.ts` against `*.spec.ts`, a `__tests__/` directory against co-location, and the framework imports, `describe` and `it` against `test`
-6. warn the operator with "No test runner detected. Fixes will be applied without test verification." when no test infrastructure is found, skip every test step, and still run the compiler and the linter
-7. run the full test suite before any change, and write the log to the OS temp directory, or to the project root when temp is unavailable
+5. detect the test runner through the signals in `test_runners`, in the order listed there
+6. detect the test file convention: `*.test.ts` against `*.spec.ts`, a `__tests__/` directory against co-location, and the framework imports, `describe` and `it` against `test`
+7. warn the operator with "No test runner detected. Fixes will be applied without test verification." when no test infrastructure is found, skip every test step, and still run the compiler and the linter
+8. run the full test suite before any change, and write the log to the OS temp directory, or to the project root when temp is unavailable
 ```bash
 <test_command> 2>&1 | tee "$TMPDIR/ts-reviewer-baseline.log"
 ```
-8. record the baseline: total tests, passing, failing with the list, and the command used
-9. process 1 file at a time, reading its current state before each fix, since an earlier fix in the same file has shifted the lines
-10. apply the fix the report describes
-11. update every reference to a renamed or replaced symbol across the codebase, its imports and its usages, when the fix replaces a pattern such as `enum` with `as const`
-12. write a regression test for each testable fix: an incorrect cast, an injection sink, a floating promise, or a missing null check
-13. skip the regression test for an untestable fix: a naming or formatting change, a config flag, a modernization that keeps the behaviour, or a complexity split
-14. name the regression test file `<original-file>.reviewer-fixes.test.ts`, following the naming, the placement, and the framework the project already uses
-15. label each test with the issue title, and keep it to the specific fix rather than the whole function
+9. record the baseline: total tests, passing, failing with the list, and the command used
+10. process 1 file at a time, reading its current state before each fix, since an earlier fix in the same file has shifted the lines
+11. apply the fix the report describes
+12. update every reference to a renamed or replaced symbol across the codebase, its imports and its usages, when the fix replaces a pattern such as `enum` with `as const`
+13. write a regression test for each testable fix: an incorrect cast, an injection sink, a floating promise, or a missing null check
+14. skip the regression test for an untestable fix: a naming or formatting change, a config flag, a modernization that keeps the behaviour, or a complexity split
+15. name the regression test file `<original-file>.reviewer-fixes.test.ts`, following the naming, the placement, and the framework the project already uses
+16. label each test with the issue title, and keep it to the specific fix rather than the whole function
 ```typescript
 describe('ts-reviewer fixes: src/auth/token.ts', () => {
   it('should not use unsafe cast for token payload (type-safety)', () => {
@@ -48,40 +54,40 @@ describe('ts-reviewer fixes: src/auth/token.ts', () => {
   });
 });
 ```
-16. tell the operator that the `.reviewer-fixes` files are candidates to rename and merge into the existing suites: the naming is a handoff convention and not a permanent home
-17. run `npx tsc --noEmit 2>&1` after each file, and use `--incremental` or check every 3..5 files instead where the work plan > 30 files and a full typecheck is slow
-18. fix a new compiler error in the file just changed or in a file the change affects, then run the compiler again to confirm
-19. revert the last fix in the file and mark the issue `[FIX FAILED: caused type errors]` when the same error survives 2 attempts
-20. repeat steps 9..19 for each file in the work plan
-21. run the linter over the changed files once every file is fixed
+17. tell the operator that the `.reviewer-fixes` files are candidates to rename and merge into the existing suites: the naming is a handoff convention and not a permanent home
+18. run `npx tsc --noEmit 2>&1` after each file, and use `--incremental` or check every 3..5 files instead where the work plan > 30 files and a full typecheck is slow
+19. fix a new compiler error in the file just changed or in a file the change affects, then run the compiler again to confirm
+20. revert the last fix in the file and mark the issue `[FIX FAILED: caused type errors]` when the same error survives 2 attempts
+21. repeat steps 10..20 for each file in the work plan
+22. run the linter over the changed files once every file is fixed
 ```bash
 # ESLint
 npx eslint [changed_files] --format json 2>/dev/null
 # or Biome
 npx biome check [changed_files] --reporter json 2>/dev/null
 ```
-22. apply `npx eslint --fix [files]` or `npx biome check --fix [files]`, fix the rest by hand, and run the linter again to confirm it is clean
-23. run the full test suite and compare it against the baseline through `baseline_verdicts`
+23. apply `npx eslint --fix [files]` or `npx biome check --fix [files]`, fix the rest by hand, and run the linter again to confirm it is clean
+24. run the full test suite and compare it against the baseline through `baseline_verdicts`
 ```bash
 <test_command> 2>&1 | tee "$TMPDIR/ts-reviewer-postfix.log"
 ```
-24. read the failure and the stack trace of each regression, and identify the fix that caused it from the diff of that file
-25. fix the regression, or revert the fix that caused it and mark it `[FIX REVERTED: caused test regression in <test>]`
-26. repeat the compiler, the linter, and the full suite until they are clean, with iterations <= 5
+25. read the failure and the stack trace of each regression, and identify the fix that caused it from the diff of that file
+26. fix the regression, or revert the fix that caused it and mark it `[FIX REVERTED: caused test regression in <test>]`
+27. repeat the compiler, the linter, and the full suite until they are clean, with iterations <= 5
 ```
 Iteration 1: Fixed 12/15 issues. 2 test regressions found.
 Iteration 2: Fixed 2 regressions. 1 new tsc error.
 Iteration 3: Fixed tsc error. All tests pass. Clean.
 -> Done at iteration 3.
 ```
-27. stop fixing once the fifth iteration ends with the compiler, the linter, or the suite still not clean, leave the code as it stands, and add a Stabilization section to the report listing the unresolved regressions for the operator
-28. show the operator what a `needs-confirm` architecture finding would change, and describe the reorganization or the interface change
-29. apply an approved `needs-confirm` finding through the same file-by-file compiler loop, and mark a rejected one `[SKIPPED: user rejected]`
-30. rerun Knip, dependency-cruiser, and co-change through the Architecture workflow when the report contains architecture findings
-31. delete `code-smells/report.md` when every issue is fixed, and tell the operator "All N issues fixed. Report deleted. Run scan again to verify."
-32. keep `code-smells/` after deleting the report, state what it contains, and ask before removing the directory
-33. rewrite `code-smells/report.md` in the shape of `report_format` when any issue remains, carrying both what was fixed and what was not
-34. leave every change in the working tree, unstaged and uncommitted, including the new regression test files
+28. stop fixing once the fifth iteration ends with the compiler, the linter, or the suite still not clean, leave the code as it stands, and add a Stabilization section to the report listing the unresolved regressions for the operator
+29. show the operator what a `needs-confirm` architecture finding would change, and describe the reorganization or the interface change
+30. apply an approved `needs-confirm` finding through the same file-by-file compiler loop, and mark a rejected one `[SKIPPED: user rejected]`
+31. rerun Knip, dependency-cruiser, and co-change through the Architecture workflow when the report contains architecture findings
+32. delete `code-smells/report.md` when every issue is fixed, and tell the operator "All N issues fixed. Report deleted. Run scan again to verify."
+33. keep `code-smells/` after deleting the report, state what it contains, and ask before removing the directory
+34. rewrite `code-smells/report.md` in the shape of `report_format` when any issue remains, carrying both what was fixed and what was not
+35. leave every change in the working tree, unstaged and uncommitted, including the new regression test files
 
 forbidden_behaviors:
 - do not commit and do not stage: the operator reviews and decides

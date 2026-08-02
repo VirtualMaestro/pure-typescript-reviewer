@@ -870,6 +870,36 @@ After a successful fix, keep `code-smells/` because its graphs, diagrams, and me
 useful. Tell the operator what the directory contains and ask whether to remove it; delete it only
 after explicit confirmation.
 
+### The report is a parsed contract, and `report_format` owns it
+
+Fix mode reads `report.md` as a work plan, so a drifting report is not a cosmetic problem: it is an
+unparseable input. The first real run produced `## Medium findings` for `## Medium Issues`, placed
+`## Architecture opportunities` above `## Low findings`, wrote `(6 Highest, 18 High, …)` where the
+format says lowercase, and invented an eight-field architecture entry
+(`Evidence/Intent/Evolution/Impact/Recommendation/Confidence/Trend/Status`) in place of the twelve
+the format declares. `ts-reviewer/tools/validate-report.mjs` is the gate; the settled rules it
+enforces, all of them stated in `report_format` first:
+
+| Rule | Why it is in the contract |
+|---|---|
+| the `##` set is closed and ordered, with `Discovery`, `Pre-existing Issues`, `Architecture Opportunities`, `Verification`, and `Generated artifacts` optional | a renamed section is the drift; the five optional ones carry the real run's most useful output and had to become legal rather than forbidden |
+| `Total issues` counts `###` findings, summary-table rows, and Architecture entries | the count was checkable only against a rule that lived nowhere, so the agent could not hit it |
+| a `Recurring Patterns` row is a pattern, never an issue | its members are already counted where they sit |
+| a summary table is read by its `Category` and `Location` columns, a pattern table by `Pattern` and `Occurrences` | the two tables sit in the same sections and only the header tells them apart |
+| a snippet matches the file within its own length of the stated line | the anchor that catches an invented snippet, without failing one that opens on a signature above the finding |
+| `**Architecture coverage:** N/M` in the metadata header | one place, bold like its neighbours |
+
+**Errors against warnings.** An error is a defect of the report text that rewriting it corrects, and
+it stops fix mode. A warning names an outcome of the mechanical pre-pass — a graph with no diagram,
+a missing artefact — which no rewrite can fix; failing on those would spend both validation attempts
+of `SKILL.md` on something the agent cannot change, and lose an otherwise sound review.
+
+The one coverage claim that stays an error is the overclaim: `successful` above the number of graphs
+on disk. That is the failure this whole section exists to stop — 27 of 36 cruise steps failed and
+the report still said the architecture was "generally acyclic". `run-cruise.mjs` now decides
+coverage with a single predicate, *a project produced a graph*, so `metrics.md`, `cruise-summary.md`
+and the report's own number cannot disagree.
+
 ---
 
 ## 9. Diagrams — what works without system dependencies

@@ -228,7 +228,7 @@ A check line looks like this:
 The format is enforced, not merely recommended:
 
 ```bash
-npm test        # typecheck + 5 conformance tests
+npm test        # typecheck + conformance and tool tests
 ```
 
 The test catches a check line that lost its severity, a block the profile does not declare, blocks out of order, a banned vague word, and a line over the limit — each reported with its file and line number.
@@ -241,20 +241,23 @@ The test catches a check line that lost its severity, a block the profile does n
 
 1. **Discovery** — detects domain flags, maps the project, reads tsconfig.json, detects linter and test runner, and asks once before downloading a missing architecture tool.
 2. **Diagnostics** — runs `tsc --noEmit`, linter, and LSP diagnostics (if available)
-3. **Architecture pre-pass** — when active, writes bounded Knip, graph, metric, co-change, rule, and Mermaid artifacts under `code-smells/`.
+3. **Architecture pre-pass** — when active, writes bounded Knip, graph, metric, co-change, rule, and Mermaid artifacts under `code-smells/`, with project coverage and bounded failure diagnostics.
 4. **Analysis** — specialized passes judge the candidates against the active checklists; tool output is never a finding by itself.
-5. **Report** — deduplicates, applies severity boost (scoped modes), consolidates recurring patterns, enforces a noise budget, writes `code-smells/report.md`. Architecture findings appear in a separate `## Architecture Opportunities` section at the end.
+5. **Report** — deduplicates, applies severity boost (scoped modes), consolidates recurring patterns, enforces a noise budget, writes `code-smells/report.md`, and validates its contract before the scan succeeds. Architecture findings appear in a separate `## Architecture Opportunities` section at the end.
+
+Validate a report directly with `node ts-reviewer/tools/validate-report.mjs --repo . --report code-smells/report.md`. It checks headings, counts, finding anchors, architecture fields, and linked artifacts without adding a dependency. An **error** is a defect of the report that rewriting it fixes; a **warning** names an outcome of the mechanical pre-pass — a graph with no diagram, say — that the report cannot fix, and warnings do not fail the run.
 
 ### Fix mode
 
-1. Parses `code-smells/report.md` as the work plan
-2. Captures test baseline (runs tests before changes)
-3. Applies fixes bottom-to-top within each file (so line numbers don't shift)
-4. Writes regression tests for each testable fix
-5. Runs `tsc --noEmit` after each file
-6. Full verification loop: tsc + linter + test suite (max 5 iterations)
-7. Compares test results with baseline — only fixes regressions it caused
-8. Updates or deletes the report, keeps the remaining `code-smells/` artifacts, and asks before removing them
+1. Validates `code-smells/report.md` and stops before changing code when the report is invalid
+2. Parses the report as the work plan
+3. Captures test baseline (runs tests before changes)
+4. Applies fixes bottom-to-top within each file (so line numbers don't shift)
+5. Writes regression tests for each testable fix
+6. Runs `tsc --noEmit` after each file
+7. Runs the full verification loop: tsc + linter + test suite (max 5 iterations)
+8. Compares test results with baseline — only fixes regressions it caused
+9. Updates or deletes the report, keeps the remaining `code-smells/` artifacts, and asks before removing them
 
 ## Tips
 

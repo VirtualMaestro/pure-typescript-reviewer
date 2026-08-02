@@ -2,8 +2,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { classifyRun } from "./ts-reviewer/tools/classify-run.mjs";
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, readdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -12,6 +12,7 @@ const tools = path.join(repoRoot, "ts-reviewer", "tools");
 const CO_CHANGE = path.join(tools, "co-change.mjs");
 const DISCOVER = path.join(tools, "discover-projects.mjs");
 const RUN_CRUISE = path.join(tools, "run-cruise.mjs");
+const VALIDATE_REPORT = path.join(tools, "validate-report.mjs");
 
 // The fixtures have no node_modules of their own; lend them this repository's compiler, both as the
 // tsc binary discovery runs and as the NODE_PATH dependency-cruiser resolves `typescript` from.
@@ -44,6 +45,124 @@ function write(dir, rel, content = "export const x = 1;\n") {
   const abs = path.join(dir, rel);
   mkdirSync(path.dirname(abs), { recursive: true });
   writeFileSync(abs, content, "utf8");
+}
+
+// The shape a real run produced, not the minimum the checker tolerates: the optional sections, both
+// table kinds, and a snippet whose first line sits above the line the finding names.
+function writeReportFixture(dir) {
+  write(dir, "src/a.ts", [
+    "export function compute(input: unknown): number {",
+    "  const raw = input as { value: number };",
+    "  const scale = 2;",
+    "  return raw.value * scale;",
+    "}",
+    "",
+  ].join("\n"));
+  write(dir, "code-smells/projects.json", JSON.stringify({ projects: [{ config: "tsconfig.json", sourceRoots: ["src"] }] }));
+  write(dir, "code-smells/co-change.md", "# Co-change\n\n- none\n");
+  write(dir, "code-smells/cruise-summary.md", "# Cruise summary\n\nCoverage: 1/1 projects\n");
+  write(dir, "code-smells/metrics.md", "# Architecture metrics\n");
+  write(dir, "code-smells/graphs/tsconfig_json.json", JSON.stringify({ modules: [{ source: "src/a.ts" }] }));
+  write(dir, "code-smells/diagrams/tsconfig_json.mmd", "flowchart LR\n  a[src/a.ts]\n");
+  write(dir, "code-smells/report.md", `# TypeScript Code Review Report
+
+**Project:** fixture
+**Reviewed:** 2026-08-02
+**Stack:** TypeScript 5.9.x / ES2024 / Node 24 — matches
+**Scope:** Full
+**Files analyzed:** 1 (+ 0 context)
+**Architecture coverage:** 1/1
+**Total issues:** 6 (0 highest, 1 high, 4 medium, 1 low)
+
+## Summary
+
+The fixture carries one of every element the format declares.
+
+## Discovery
+
+Project: fixture
+Scope: full
+
+## Highest + High Issues
+
+### Unsafe cast reaches the return — High
+
+**Category:** Type Safety & Security | **File:** \`src/a.ts\` | **Line:** 4 | **Auto-fixable:** Yes | **New code:** No
+
+\`\`\`typescript
+export function compute(input: unknown): number {
+  const raw = input as { value: number };
+  const scale = 2;
+  return raw.value * scale;
+\`\`\`
+
+**Problem:** the cast is never validated before the value is read
+**Fix:** parse the input and return the parsed value
+
+---
+
+## Medium Issues
+
+### The scale is a bare literal — Medium
+
+**Category:** Code Quality | **File:** \`src/a.ts\` | **Line:** 3 | **Auto-fixable:** Yes | **New code:** No
+
+\`\`\`typescript
+  const scale = 2;
+\`\`\`
+
+**Problem:** the constant carries no name for its unit
+**Fix:** name it at the module boundary
+
+| Issue | Category | Location | Fix |
+|---|---|---|---|
+| The return type is inferred | Type Safety | \`src/a.ts:1\` | annotate the exported boundary |
+| The parameter is unvalidated | Boundary Validation | \`src/a.ts:1\` | parse it at the seam |
+
+## Low Issues
+
+| Issue | Category | Location | Fix |
+|---|---|---|---|
+| The function is not marked pure | Code Quality | \`src/a.ts:1\` | note the intent where it is called |
+
+## Recurring Patterns
+
+| Pattern | Occurrences | Severity treatment |
+|---|---|---|
+| unvalidated casts | 3 | consolidated into the High finding above |
+| bare numeric literals | 5 | left at Medium and reported once |
+
+## Config Issues
+
+No config finding: the fixture carries no tsconfig deviation.
+
+## Architecture Opportunities
+
+### Declare the boundary — Medium
+
+- **Confidence:** strong
+- **Files:** src/a.ts
+- **Problem:** the boundary is implicit
+- **Evidence:** [overview](diagrams/tsconfig_json.mmd)
+- **Change type:** enforce
+- **Proposed change:** declare the existing boundary
+- **Rule:** src may import only src
+- **Test strategy:** keep the current tests and add one rule check
+- **Benefits:** the dependency direction becomes executable
+- **Trade-offs:** the declaration needs maintenance
+- **Fixability:** report-only
+- **Top recommendation:** it prevents the confirmed drift first
+
+## Verification
+
+| Check | Result |
+|---|---|
+| \`npx tsc --noEmit\` | passed |
+
+## Generated artifacts
+
+- \`metrics.md\` — structural metrics
+`);
 }
 
 test("a run is read by its output, not by its exit code", () => {
@@ -112,6 +231,120 @@ test("run-cruise passes several source roots as separate arguments and keeps the
   assert.match(metrics, /Top modules by fan-in/, "the semantic pass gets derived tables instead of a raw graph");
   assert.match(metrics, /scripts\/build\.ts|src\/index\.ts/, "the derived table names cruised modules");
 
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("run-cruise resolves nested tsconfig paths and retains one bounded failure diagnostic", NETWORK, () => {
+  const { dir } = newRepo();
+  write(dir, "tsconfig.base.json", JSON.stringify({
+    compilerOptions: { target: "ES2024", module: "nodenext", moduleResolution: "nodenext" },
+  }, null, 2));
+  write(dir, "packages/app/tsconfig.json", JSON.stringify({ extends: "../../tsconfig.base.json", include: ["src"] }, null, 2));
+  write(dir, "packages/app/src/index.ts", "export const nested = true;\n");
+  write(dir, "packages/bad/src/index.ts", "export const broken = true;\n");
+  write(dir, "projects.json", JSON.stringify({ projects: [
+    { config: "packages/app/tsconfig.json", sourceRoots: ["packages/app/src"] },
+    { config: "packages/bad/missing-tsconfig.json", sourceRoots: ["packages/bad/src"] },
+  ] }));
+
+  run(RUN_CRUISE, ["--projects", "projects.json", "--out", "out"], dir);
+
+  const graph = JSON.parse(readFileSync(path.join(dir, "out", "graphs", "packages_app_tsconfig_json.json"), "utf8"));
+  assert.deepEqual(graph.modules.map((module) => module.source), ["packages/app/src/index.ts"]);
+  const summary = readFileSync(path.join(dir, "out", "cruise-summary.md"), "utf8");
+  assert.match(summary, /Coverage: 1\/2 projects/);
+  assert.match(summary, /ENOENT.*missing-tsconfig\.json/);
+  assert.doesNotMatch(summary, /TS18003|TS5083/);
+  assert.equal(summary.split("\n").filter((line) => line.startsWith("| packages/bad/missing-tsconfig.json |")).length, 1);
+  const metrics = readFileSync(path.join(dir, "out", "metrics.md"), "utf8");
+  assert.match(metrics, /\| packages\/app\/tsconfig.json \| ok \|/);
+  assert.match(metrics, /\| packages\/bad\/missing-tsconfig.json \| failed \|/);
+  // One predicate behind all three: a project is covered when it produced a graph, so metrics.md,
+  // cruise-summary.md, and the coverage the report copies out cannot contradict each other.
+  const graphs = readdirSync(path.join(dir, "out", "graphs")).filter((file) => file.endsWith(".json"));
+  assert.equal(graphs.length, 1);
+  assert.equal((summary.match(/\| ok \|/g) ?? []).length, graphs.length);
+
+  rmSync(dir, { recursive: true, force: true });
+});
+
+const validate = (dir) =>
+  spawnSync(process.execPath, [VALIDATE_REPORT, "--repo", dir, "--report", "code-smells/report.md"], { encoding: "utf8" });
+const editReport = (dir, edit) => {
+  const report = path.join(dir, "code-smells", "report.md");
+  writeFileSync(report, edit(readFileSync(report, "utf8")), "utf8");
+};
+
+test("validate-report accepts the canonical report contract", () => {
+  const { dir } = newRepo();
+  writeReportFixture(dir);
+  const result = validate(dir);
+  assert.equal(result.status, 0, result.stderr);
+  // 1 High heading + 1 Medium heading + 3 summary-table rows + 1 architecture entry.
+  // The 2 Recurring Patterns rows are patterns, not issues, and the Verification table is not counted.
+  assert.match(result.stdout, /Validated code-smells[\\/]report.md: 6 issue\(s\), 0 warning\(s\)/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("validate-report rejects report drift before fix mode can parse it", () => {
+  const { dir } = newRepo();
+  writeReportFixture(dir);
+  editReport(dir, (report) => report
+    .replace("**Total issues:** 6", "**Total issues:** 7")
+    .replace("## Medium Issues", "## Medium findings")
+    .replace("**Category:** Type Safety & Security", "**Category:** Async & Security")
+    .replace("`src/a.ts` | **Line:** 4", "`src/missing.ts` | **Line:** 4")
+    .replace("| Pattern | Occurrences | Severity treatment |", "| Thing | Count | Note |")
+    .replace("```typescript\nexport function compute", "export function compute")
+    .replace("**Confidence:** strong", "**Confidence:** Medium")
+    .replace("**Change type:** enforce", "**Change type:** deepening")
+    .replace("diagrams/tsconfig_json.mmd)", "diagrams/missing.mmd)"));
+
+  const result = validate(dir);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /unknown section: Medium findings/);
+  assert.match(result.stderr, /missing section: Medium Issues/);
+  assert.match(result.stderr, /unknown category: Async/);
+  assert.match(result.stderr, /path does not exist: src\/missing.ts/);
+  assert.match(result.stderr, /table header must carry Category and Location/);
+  assert.match(result.stderr, /finding has no fenced snippet/);
+  assert.match(result.stderr, /invalid Confidence: Medium/);
+  assert.match(result.stderr, /missing architecture field: Interface shape/);
+  assert.match(result.stderr, /linked artifact does not exist/);
+  assert.match(result.stderr, /Total issues says 7/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("validate-report keeps the optional sections and a snippet opening above its line", () => {
+  const { dir } = newRepo();
+  writeReportFixture(dir);
+  const report = readFileSync(path.join(dir, "code-smells", "report.md"), "utf8");
+  // The guards this asserts are the ones a strict reading would have failed the real report on.
+  assert.match(report, /## Discovery\n/);
+  assert.match(report, /## Verification\n/);
+  assert.match(report, /## Generated artifacts\n/);
+  assert.match(report, /\*\*Line:\*\* 4 \|/);
+  assert.equal(validate(dir).status, 0);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("a missing diagram warns, and an overclaimed coverage fails", () => {
+  const { dir } = newRepo();
+  writeReportFixture(dir);
+  rmSync(path.join(dir, "code-smells", "diagrams", "tsconfig_json.mmd"));
+  editReport(dir, (report) => report.replace("[overview](diagrams/tsconfig_json.mmd)", "the import edges"));
+
+  // A pre-pass that produced no diagram is not a defect of the report, and the report cannot fix it.
+  const warned = validate(dir);
+  assert.equal(warned.status, 0, warned.stderr);
+  assert.match(warned.stderr, /warning: successful graph has no overview diagram: tsconfig_json.mmd/);
+  assert.match(warned.stdout, /1 warning\(s\)/);
+
+  // Claiming more analysed projects than there are graphs is the lie the coverage line exists to stop.
+  editReport(dir, (report) => report.replace("**Architecture coverage:** 1/1", "**Architecture coverage:** 2/1"));
+  const failed = validate(dir);
+  assert.equal(failed.status, 1);
+  assert.match(failed.stderr, /Architecture coverage claims 2 analysed project\(s\) over 1 graph\(s\)/);
   rmSync(dir, { recursive: true, force: true });
 });
 

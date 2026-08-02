@@ -8,8 +8,8 @@ file_map:
 |---|---|---|
 | `ts-reviewer/references/*.md` | the review rules themselves, 1 file per domain | you |
 | `ts-reviewer/SKILL.md` | the review protocol: modes, scope, workflow, report shape | you |
-| `ts-reviewer/tools/*.mjs` | the mechanical pre-pass a rule runs: plain Node, no CNL-P, no dependencies | you |
-| `tools.test.mjs` | the self-check for those scripts, run by `npm test` alongside the format check | you |
+| `ts-reviewer/tools/*.mjs` | the mechanical pre-pass and report validator: plain Node, no CNL-P, no dependencies | you |
+| `tools.test.mjs` | the self-check for the pre-pass and report validator, run by `npm test` with the format check | you |
 | `cnlp/profiles/reference.md` | which blocks a `references/` file may use, in which order, in which form | you |
 | `cnlp/profiles/skill.md` | the same, for `SKILL.md` | you |
 | `cnlp/profiles/guide.md` | the same, for this file | you |
@@ -111,6 +111,6 @@ forbidden_behaviors:
 verification:
 - `npm test` runs the typecheck, the format check, and the pre-pass self-check together
 - `node --test cnlp/skill-format.test.js` runs the format check alone, as 5 tests
-- `node --test tools.test.mjs` runs the pre-pass self-check alone, and 1 of its 8 tests is skipped without `ARCH_TOOLS_NETWORK=1`, which lets it reach `npx`
+- `node --test tools.test.mjs` runs 13 tool tests, and 2 are skipped without `ARCH_TOOLS_NETWORK=1`, which lets them reach `npx`
 - every issue is an error and none is a warning: these files are read as executable instructions, so there is no draft state
 - the failure message names the file and the line

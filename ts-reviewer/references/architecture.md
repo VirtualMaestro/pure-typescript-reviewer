@@ -54,19 +54,20 @@ workflow:
 6. run the mechanical pre-pass with the commands below against 1 unchanged tree before the semantic pass
 7. classify Knip and dependency-cruiser by parseable output rather than exit code, since both tools use non-zero and zero exits for reportable candidates
 8. record a project with source files and `totalCruised == 0` as a skipped pre-pass, and do not report its mechanical zeros
-9. give the semantic pass `code-smells/metrics.md` rather than a raw graph
-10. cross each co-change pair with the graph: an edge is weak evidence, while no edge across directories is an implicit-contract candidate
-11. read ESLint boundary rules from linter output without converting them, since the linter already executed those rules
-12. consolidate all violating edges for 1 declared rule into 1 candidate, after removing declared exceptions
-13. trace `min(declared entry points, 3)` scenarios, ranked by the number of modules each entry point reaches
-14. grep for feature-module imports inside the `shared`, `common`, `core`, and `utils` directories, which is the inverted direction
-15. apply the deletion test only to a module whose whole export set has 1 importer and that wraps or re-exports another module
-16. treat an interface or type re-exported unchanged through 3+ files as a pass-through chain
-17. inspect the top 20 modules and folders by fan-in for mixed concepts, and use folder instability only to rank layer checks
-18. name the module owning the rule and the module owning the state for each candidate, and mark the candidate speculative when neither is identifiable
-19. after triage, create 2..3 focused Mermaid diagrams tied to the top findings, and do not create a whole-project diagram
-20. generate SVG only after `dot -V` succeeds, and keep Mermaid when Graphviz is unavailable
-21. run these checks rather than reporting a cycle, hub, orphan, co-change pair, or Knip entry directly
+9. state Architecture coverage as successful projects over selected projects, and list each failed config with its bounded diagnostic
+10. give the semantic pass `code-smells/metrics.md` rather than a raw graph
+11. cross each co-change pair with the graph: an edge is weak evidence, while no edge across directories is an implicit-contract candidate
+12. read ESLint boundary rules from linter output without converting them, since the linter already executed those rules
+13. consolidate all violating edges for 1 declared rule into 1 candidate, after removing declared exceptions
+14. trace `min(declared entry points, 3)` scenarios, ranked by the number of modules each entry point reaches
+15. grep for feature-module imports inside the `shared`, `common`, `core`, and `utils` directories, which is the inverted direction
+16. apply the deletion test only to a module whose whole export set has 1 importer and that wraps or re-exports another module
+17. treat an interface or type re-exported unchanged through 3+ files as a pass-through chain
+18. inspect the top 20 modules and folders by fan-in for mixed concepts, and use folder instability only to rank layer checks
+19. name the module owning the rule and the module owning the state for each candidate, and mark the candidate speculative when neither is identifiable
+20. keep each collapsed project overview, then create 2..3 focused Mermaid diagrams tied to the top findings after triage
+21. generate SVG only after `dot -V` succeeds, and keep Mermaid when Graphviz is unavailable
+22. run these checks rather than reporting a cycle, hub, orphan, co-change pair, or Knip entry directly
 ```bash
 # SKILL is the directory this file was loaded from; the main workflow approved missing tools before this pass.
 SKILL=<the directory this file was loaded from>
@@ -137,6 +138,7 @@ forbidden_behaviors:
 - do not leave a new structure standing beside the old one: every proposal names the step deleting what it replaces
 - do not propose a change contradicting a decision under `docs/adr/` silently: name the ADR and the conflict, and leave the decision to the operator
 - do not report architecture candidates without naming 1 top recommendation and the reason it goes first
+- do not claim the repository has no cycles, orphans, or coupling issues below 100% Architecture coverage: name the successful projects
 - do not add a dependency as the fix for 1 import rule: use `package.json#exports`, the project's linter, or the workspace layout
 - do not treat an approved `npx` graph tool used during review as a project dependency: it changes neither `package.json` nor the lockfile
 
@@ -190,6 +192,6 @@ report_format:
 - **Migration:** for deepening, merge, ownership move, or delete; prefactor | vertical slices | expand-contract, and the deletion step
 - **Benefits:** locality gained, leverage gained, test impact
 - **Trade-offs:** what gets harder, what is genuinely uncertain
-- **Fixability:** auto | needs-confirm | report-only
+- **Fixability:** auto | needs-confirm | report-only, and report-only for enforce, since a new rule fails the build before the edges it names are gone
 - **Top recommendation:** on exactly 1 entry in the report, the reason this candidate goes first
 ```
