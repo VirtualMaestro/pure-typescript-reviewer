@@ -84,6 +84,8 @@ Audit the codebase for security and type safety problems
 Claude will analyze the project and write a report to `code-smells/report.md` in the project root.
 With Architecture active, the same directory also holds project discovery, Knip, graph, metric, co-change, rule, and Mermaid artifacts.
 
+The analysis passes run in waves. `--agents N` sets how many run at once (default 3; `--agents 1` runs them one at a time in the main agent). Each pass writes its own findings file under `code-smells/passes/`, and the queue in `code-smells/passes/queue.md` tracks which passes are done, so an interrupted scan does not lose finished work.
+
 #### Domain flags
 
 By default, only the nine core domains run. Use flags to control which domains are active:
@@ -197,6 +199,12 @@ cnlp/                                 # the CNL-P format the skill files are wri
 
 ts-reviewer/
 ├── SKILL.md                          # Main skill file — mode routing, workflow orchestration
+├── tools/                            # Mechanical pre-pass and report validator — plain Node, no dependencies
+│   ├── discover-projects.mjs         # Finds the TypeScript projects and their source roots
+│   ├── co-change.mjs                 # Git co-change pairs across directory boundaries
+│   ├── run-cruise.mjs                # dependency-cruiser graphs, metrics, and Mermaid diagrams per project
+│   ├── classify-run.mjs              # Reads a tool run by its output, not its exit code
+│   └── validate-report.mjs           # Checks code-smells/report.md against the report contract
 └── references/
     ├── type-safety.md                # Checklist: any, unknown, casts, !, exhaustiveness, branded types
     ├── security.md                   # Checklist: trust boundaries, injection, SSRF, pollution, ReDoS
@@ -240,9 +248,9 @@ The test catches a check line that lost its severity, a block the profile does n
 ### Scan mode
 
 1. **Discovery** — detects domain flags, maps the project, reads tsconfig.json, detects linter and test runner, and asks once before downloading a missing architecture tool.
-2. **Diagnostics** — runs `tsc --noEmit`, linter, and LSP diagnostics (if available)
+2. **Diagnostics** — runs `tsc --noEmit`, linter, and LSP diagnostics (if available); compiler and linter output is cached under `code-smells/passes/` and reused on a resume of the same commit.
 3. **Architecture pre-pass** — when active, writes bounded Knip, graph, metric, co-change, rule, and Mermaid artifacts under `code-smells/`, with project coverage and bounded failure diagnostics.
-4. **Analysis** — specialized passes judge the candidates against the active checklists; tool output is never a finding by itself.
+4. **Analysis** — specialized passes judge the candidates against the active checklists, running in waves of `--agents` at a time; each pass writes its own `code-smells/passes/<id>.jsonl`, and `passes/queue.md` marks which are done, so a stopped run resumes from the last checkpoint. Tool output is never a finding by itself.
 5. **Report** — deduplicates, applies severity boost (scoped modes), consolidates recurring patterns, enforces a noise budget, writes `code-smells/report.md`, and validates its contract before the scan succeeds. Architecture findings appear in a separate `## Architecture Opportunities` section at the end.
 
 Validate a report directly with `node ts-reviewer/tools/validate-report.mjs --repo . --report code-smells/report.md`. It checks headings, counts, finding anchors, architecture fields, and linked artifacts without adding a dependency. An **error** is a defect of the report that rewriting it fixes; a **warning** names an outcome of the mechanical pre-pass — a graph with no diagram, say — that the report cannot fix, and warnings do not fail the run.
@@ -262,6 +270,10 @@ Validate a report directly with `node ts-reviewer/tools/validate-report.mjs --re
 ## Tips
 
 - **Add `code-smells/` to `.gitignore`** — it contains review artifacts, not source code.
+
+- **Resume an interrupted scan** — run the same scan again. When `code-smells/passes/queue.md` exists, the skill asks whether to resume (finished passes are skipped, cached `tsc` and linter output is reused on the same commit) or restart from scratch.
+
+- **Claude Code users** — `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` in `settings.json` under `env` caps sub-agents for every session on the host. It is independent of `--agents`, which caps one review run and works in every supported agent.
 
 - **Commit before running fix** — so you can `git diff` to review changes and `git checkout -- .` to revert if needed.
 

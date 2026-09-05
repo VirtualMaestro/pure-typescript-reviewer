@@ -23,7 +23,7 @@ target_stack:
 - a pattern below this stack is a finding, and a feature above it is never recommended
 
 inputs:
-- the request, which carries the run mode, the domain set, and the scope mode
+- the request, which carries the run mode, the domain set, the scope mode, and the wave size
 - the project `tsconfig.json`, `package.json`, and linter config
 - the reference checklists under `references/`
 
@@ -62,9 +62,12 @@ forbidden_behaviors:
 - do not download and execute a missing analysis tool before the operator approves it once at discovery
 - do not run `npm install` or `npm uninstall` for analysis: use an approved pinned-major `npx -y` command, or record the pre-pass as skipped
 - do not rename a report section, field, severity, confidence, or domain: `report_format` and `domains` hold exact identifiers
+- do not start a wave before every pass of the previous wave is marked `done`, `pending`, or `failed` in the queue
+- do not read a finding from an agent reply: the `.jsonl` file under `code-smells/passes/` is the record, and a reply holds 1 line
 
 outputs:
 - `code-smells/report.md` in the project root: the scan report, and the work plan fix reads
+- `code-smells/passes/`: the pass queue, the cached diagnostics, and 1 JSONL file per pass
 - `code-smells/knip.json`, `projects.json`, `co-change.md`, `cruise-summary.md`, `metrics.md`, and graph and diagram directories when Architecture is active
 - `code-smells/suggested.dependency-cruiser.cjs` when prose declares dependency rules and no machine-readable declaration owns them
 - the `## Architecture Opportunities` section of the report only when Architecture is active and at least 1 confirmed finding exists
@@ -120,58 +123,65 @@ workflow:
 3. identify the scope mode from `scope_modes`, and default to `full` when the request names none
 4. build the file list with the command in `scope_commands` for that scope mode
 5. ask whether to fall back to `full` when a scoped mode yields 0 files
-6. map the project tree in full, whatever the scope mode
-7. read `tsconfig.json` and `references/tsconfig.md`, then audit the config flags
-8. detect monorepo workspaces in `package.json` and `pnpm-workspace.yaml`, and every further tsconfig
-9. audit the config that governs the files in scope, and name that config in the summary
-10. read the linter config: `eslint.config.*`, `.eslintrc.*`, `biome.json`, `deno.json`
-11. read `package.json` for the dependencies and the module type, and verify the TypeScript version, `engines.node`, and `@types/node` against `target_stack`
-12. identify declared entry points from `package.json#exports`, `main`, `bin`, and the `start`, `dev`, and `serve` scripts
-13. when Architecture is active, inspect local Knip and dependency-cruiser binaries and ask once before running either missing tool through pinned-major `npx -y`
-14. collect the context files named in `scope:` when the scope mode is scoped
-15. identify feature slices and public entry points when Architecture is active, leaving graph discovery to its mechanical pre-pass
-16. collect machine-readable dependency rules and prose from ADR directories, `ARCHITECTURE.md`, README, and `CONTRIBUTING.md`
-17. run `npx tsc --noEmit 2>&1 | head -200` over the full project, and report only the errors in the scoped files
-18. run the linter: `npx eslint [files] --format json` or `npx biome check [files] --reporter json`
-19. query the TypeScript LSP over MCP when it is reachable, then merge and deduplicate against the compiler output
-20. triage every compiler and linter diagnostic through `severity_mapping`
-21. read the reference file named in `domains` before each analysis pass
-22. run the mechanical pre-pass in `references/architecture.md` when Architecture is active, passing the approved tool decision and scoped base
-23. report the discovery summary in the shape of `discovery_summary`, including skipped and clean mechanical results
-24. run only the passes whose domain is in the active domain set, as sub-agents shaped by `subagent_template` or one domain at a time
-25. give every agent all the scoped files when scoped files <= 20, and split by directory above that, with the shared types visible to every agent
-26. re-read the exact lines in the current file state before a finding enters the report
-27. read the callers to verify a data flow a finding rests on, or mark its problem statement with "if <condition>" and cap its severity at Medium
-28. downgrade a flagged non-High pattern that appears 5+ times across the codebase by 1 level, and report it once as a Recurring Pattern
-29. boost a finding carrying `in_diff: true` by 1 level in a scoped mode, and mark it `High [boosted, was Medium — new code]`
-30. deduplicate the findings on the same file, line, and issue, keeping 1
-31. merge the findings 2 domains raise on the same file and line into 1 entry attributing both categories, at the higher severity
-32. consolidate 3+ identical issues into 1 Recurring Pattern entry
-33. keep the top 15 by severity and impact when a single domain produces more than 25 Medium or Low findings, and consolidate the rest into Recurring Pattern entries with their counts
-34. write `code-smells/report.md` in the shape of `report_format`
-35. validate the report against `report_format` after writing it, and treat a `warning:` line as a pre-pass outcome the report cannot correct
+6. ask once whether to resume or restart when `code-smells/passes/queue.md` exists, and delete `code-smells/passes/` on restart
+7. warn when the `HEAD` in the queue header differs from the current `HEAD` on a resume: the line re-read below catches a stale line
+8. map the project tree in full, whatever the scope mode
+9. read `tsconfig.json` and `references/tsconfig.md`, then audit the config flags
+10. detect monorepo workspaces in `package.json` and `pnpm-workspace.yaml`, and every further tsconfig
+11. audit the config that governs the files in scope, and name that config in the summary
+12. read the linter config: `eslint.config.*`, `.eslintrc.*`, `biome.json`, `deno.json`
+13. read `package.json` for the dependencies and the module type, and verify the TypeScript version, `engines.node`, and `@types/node` against `target_stack`
+14. identify declared entry points from `package.json#exports`, `main`, `bin`, and the `start`, `dev`, and `serve` scripts
+15. when Architecture is active, inspect local Knip and dependency-cruiser binaries and ask once before running either missing tool through pinned-major `npx -y`
+16. collect the context files named in `scope:` when the scope mode is scoped
+17. identify feature slices and public entry points when Architecture is active, leaving graph discovery to its mechanical pre-pass
+18. collect machine-readable dependency rules and prose from ADR directories, `ARCHITECTURE.md`, README, and `CONTRIBUTING.md`
+19. run `npx tsc --noEmit 2>&1 | head -200` over the full project into `code-smells/passes/tsc.log`, and report only the errors in the scoped files
+20. run the linter into `code-smells/passes/lint.json`: `npx eslint [files] --format json` or `npx biome check [files] --reporter json`
+21. reuse `tsc.log` and `lint.json` on a resume when the queue `HEAD` matches and the tree is clean, and rerun both otherwise
+22. query the TypeScript LSP over MCP when it is reachable, then merge and deduplicate against the compiler output
+23. triage every compiler and linter diagnostic through `severity_mapping`
+24. read the reference file named in `domains` before each analysis pass
+25. run the mechanical pre-pass in `references/architecture.md` when Architecture is active, passing the approved tool decision and scoped base
+26. report the discovery summary in the shape of `discovery_summary`, including skipped and clean mechanical results
+27. build the pass list: 1 pass per active domain, split by directory when scoped files > 20, with the shared types visible to every pass
+28. write `code-smells/passes/queue.md` in the shape of `pass_queue`, in its domain order, and skip a pass marked `done` on a resume
+29. run the pending passes in waves of the wave size, as sub-agents shaped by `subagent_template`, or in the main agent when the wave size is 1
+30. wait for every agent of a wave, then mark each pass `done` when the last line of its file is the `done` line, and `pending` otherwise
+31. mark a pass `failed` after 2 attempts without a `done` line, name it in the discovery summary, and report its domain as not run
+32. read the findings of every `done` pass from its `.jsonl` file before the re-read below
+33. re-read the exact lines in the current file state before a finding enters the report
+34. read the callers to verify a data flow a finding rests on, or mark its problem statement with "if <condition>" and cap its severity at Medium
+35. downgrade a flagged non-High pattern that appears 5+ times across the codebase by 1 level, and report it once as a Recurring Pattern
+36. boost a finding carrying `in_diff: true` by 1 level in a scoped mode, and mark it `High [boosted, was Medium — new code]`
+37. deduplicate the findings on the same file, line, and issue, keeping 1
+38. merge the findings 2 domains raise on the same file and line into 1 entry attributing both categories, at the higher severity
+39. consolidate 3+ identical issues into 1 Recurring Pattern entry
+40. keep the top 15 by severity and impact when a single domain produces more than 25 Medium or Low findings, and consolidate the rest into Recurring Pattern entries with their counts
+41. write `code-smells/report.md` in the shape of `report_format`
+42. validate the report against `report_format` after writing it, and treat a `warning:` line as a pre-pass outcome the report cannot correct
 ```bash
 # SKILL is the directory this file was loaded from.
 SKILL=<the directory this file was loaded from>
 node "$SKILL/tools/validate-report.mjs" --repo . --report code-smells/report.md
 ```
-36. correct every named error and retry with report validation iterations <= 2
-37. keep `code-smells/report.md` when the second validation fails, write `> unvalidated: <the first error>` under its title, and name the errors to the operator
-38. sort by severity group, then category, then file path, and place `in_diff: true` before pre-existing in a scoped mode
-39. show the top 10 and summarize the rest in a table when Medium and Low together hold more than 15 issues
-40. recommend that the operator adds `code-smells/` to `.gitignore`: it holds review artifacts
-41. read `references/fix-workflow.md` before fix mode executes: it holds the complete protocol
-42. detect the test runner and run the baseline tests
-43. fix the issues file by file, and run `tsc --noEmit` after each file
-44. run the linter and fix the lint errors it reports
-45. run the full test suite, compare it against the baseline, and fix the regressions
-46. repeat the compiler, linter, and test verification with verification iterations <= 5
-47. rerun the Architecture mechanical pre-pass on the fixed tree when Architecture is active
-48. update `code-smells/report.md`: remove what is fixed, mark what failed
-49. show the scan summary in auto mode, and ask the operator whether to proceed with the fix
-50. re-scan after the fix in auto mode with full scan-fix cycles <= 2, and stop when issues persist after the second
-51. delete `code-smells/report.md` and report success when every issue is fixed
-52. retain the remaining `code-smells/` artifacts, state what they contain, and remove them only after the operator confirms
+43. correct every named error and retry with report validation iterations <= 2
+44. keep `code-smells/report.md` when the second validation fails, write `> unvalidated: <the first error>` under its title, and name the errors to the operator
+45. sort by severity group, then category, then file path, and place `in_diff: true` before pre-existing in a scoped mode
+46. show the top 10 and summarize the rest in a table when Medium and Low together hold more than 15 issues
+47. recommend that the operator adds `code-smells/` to `.gitignore`: it holds review artifacts
+48. read `references/fix-workflow.md` before fix mode executes: it holds the complete protocol
+49. detect the test runner and run the baseline tests
+50. fix the issues file by file, and run `tsc --noEmit` after each file
+51. run the linter and fix the lint errors it reports
+52. run the full test suite, compare it against the baseline, and fix the regressions
+53. repeat the compiler, linter, and test verification with verification iterations <= 5
+54. rerun the Architecture mechanical pre-pass on the fixed tree when Architecture is active
+55. update `code-smells/report.md`: remove what is fixed, mark what failed
+56. show the scan summary in auto mode, and ask the operator whether to proceed with the fix
+57. re-scan after the fix in auto mode with full scan-fix cycles <= 2, and stop when issues persist after the second
+58. delete `code-smells/report.md` and report success when every issue is fixed
+59. retain the remaining `code-smells/` artifacts, state what they contain, and remove them only after the operator confirms
 
 scope_commands:
 ```bash
@@ -232,6 +242,8 @@ Strict mode: yes / partial / no
 Linter: eslint / biome / none
 Test runner: vitest / jest / mocha / node:test / none
 Files in scope: <N> .ts files (+ <M> context files)
+Agents per wave: <N>
+Resumed: <done>/<total> passes from code-smells/passes/queue.md, or no
 Architecture projects: <config and source roots, when active>
 Architecture tools: <local or approved npx versions, when active>
 Architecture coverage: <successful>/<selected>, when active
@@ -252,6 +264,9 @@ Read the reference checklist: [REFERENCE_PATH]
 Review these files: [FILE_LIST]
 Context files (read-only, do NOT report issues): [CONTEXT_FILE_LIST]
 Scope mode: [full|uncommitted|branch|commits:N]
+Write every finding as 1 JSONL line to: [OUTPUT_PATH]
+Append 1 last line when every file is reviewed: {"done": true, "findings": N, "files": M}
+Reply with 1 line: the pass id, the findings count, the files count. The file is the result; the reply is not.
 
 Output JSONL, one object per line:
 {
@@ -267,6 +282,25 @@ Output JSONL, one object per line:
   "in_diff": true|false,
   "reference": "optional — omit unless the forbidden_behaviors allow it"
 }
+```
+
+pass_queue:
+- `--agents N` in the request sets the wave size, and the default is 3
+- `--agents 1` runs 1 pass at a time in the main agent, with no sub-agent
+- the pass id is the domain slug, or `<domain slug>.<directory slug>` for a split pass
+- the domain order: Security, Type Safety, Async Patterns, Error Handling, Boundary Validation, Config, Dependency Hygiene, Modernization, Code Quality, Architecture
+- a status is `pending`, `done`, or `failed`, and `Attempts` counts the waves the pass ran in
+```markdown
+# Pass queue
+
+HEAD: <sha>
+Scope: <mode>
+Agents per wave: <N>
+
+| Pass | Domain | Files | Status | Attempts | Findings |
+|---|---|---|---|---|---|
+| security | Security | 42 | done | 1 | 7 |
+| type-safety.src-auth | Type Safety | 12 | pending | 1 | |
 ```
 
 report_format:

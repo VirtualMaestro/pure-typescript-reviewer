@@ -68,6 +68,7 @@ custom_sections:
 - severity_mapping
 - discovery_summary
 - subagent_template
+- pass_queue
 - report_format
 
 enforcement:
