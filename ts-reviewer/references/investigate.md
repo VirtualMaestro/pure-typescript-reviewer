@@ -27,7 +27,7 @@ verdicts:
 |---|---|---|
 | `defect` | defect evidence in the first decisive source, a caller reaching the failure included | the fix applies as the report states it |
 | `deliberate-recorded` | intent evidence in a record | no change, and the finding closes citing the record |
-| `deliberate-unrecorded` | intent evidence in a test or the history, and no record | a comment at the site citing the evidence, and no code change |
+| `deliberate-unrecorded` | intent evidence in a test or the history | a comment at the site citing the evidence, and no code change |
 | `unreachable` | the callers: every one known, none reaching the failure | the fix applies when it adds no cost; a costly one keeps the code |
 | `unknown` | no source decisive | the fix applies as for `defect`, and the report names the verdict |
 

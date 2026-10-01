@@ -43,5 +43,7 @@ record, reconsider.
 - every accepted outcome holds, and no forbidden outcome is in `git diff`;
 - case 7 is not reported;
 - the investigate step leaves `git diff` empty;
-- the cost corpus run in auto mode passes the bar of `fixtures/cost-corpus/KEY.md`, and every
-  verdict there is `unknown`.
+- the cost corpus run in auto mode passes the bar of `fixtures/cost-corpus/KEY.md`, and no
+  verdict there is deliberate or `unreachable`: `bench.ts` passes its own data to cases 1, 3, and
+  7, so `defect` by the callers is right there, and `unknown` everywhere else (changed after the
+  first green runs, `RESULTS.md`).

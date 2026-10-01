@@ -33,3 +33,36 @@ What `3.2.0` does with intent, seen in all 3 runs:
 **Decided 2026-10-01:** failure (b) counts, as for slice 1. Read that way the gate passes in
 every run: red run 1 has cases 2 and 3 forbidden, red run 2 cases 1, 2, and 3, red run 3 cases 2
 and 3. Step 4 is open.
+
+## Green runs of `57e9509` (`3.3.0`)
+
+| Date | Skill | Runtime | Model | Verdicts | 1 | 2 | 3 | 4 | 5 | 6 | 7 | Diff after investigate | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-01 | 3.3.0 (`57e9509`), green run 1 | as red run 1 | Opus 5.5 | 6 | ok: `deliberate-recorded`, ADR, untouched | ok: `deliberate-unrecorded`, history, 1 comment, no rung 7 question | ok: `deliberate-unrecorded`, test, 1 comment, suite as baseline | ok: `defect`, test; guard applied, the baseline failure passes | ok: `unreachable`, callers; typed parameter | ok: `unknown`; `toReversed()` | ok: dropped | empty | **bar passed** |
+| 2026-10-01 | 3.3.0 (`57e9509`), green run 2 | as red run 1 | Opus 5.5 | 6 | ok, as run 1 | ok | ok | ok | ok | ok | ok | empty | **bar passed** |
+| 2026-10-01 | 3.3.0 (`57e9509`), green run 3 | as red run 1 | Opus 5.5 | 6 | ok | ok | ok | ok, pointer `config.test.ts:10`, inside the key's range | ok | ok | ok | empty | **bar passed** |
+
+Cost corpus, 1 auto run of `57e9509` (`cost-corpus-TP1KKk`): slice 1's outcomes hold — case 1 r4,
+case 2 r1, case 7 r3, cases 3 and 4 `[SKIPPED: rung 7 …]`, cases 5 and 6 applied as reported,
+2 numbers per designed fix from the cycle 1 logs. The fields are not readable: the re-scan of
+auto mode restarted the queue and deleted the first scan's `passes/`. Verdicts: cases 2 and 4
+`unknown`, but cases 1, 3, and 7 `defect`, each citing `src/bench.ts` passing its own array or
+body into the mutating call. That is the rule as written — a caller passing a value that reaches
+the failure is defect evidence — and the key's "every verdict `unknown`" was a wrong prediction.
+5 non-cost entries carry no `Verdict` line in the rewritten report, against "an entry keeps the
+`Verdict` line it had": most likely summary-table rows the fix run promoted to entries.
+
+Questions all 3 intent runs raised, and the changes they lead to:
+
+- `fix-design.md` forbids closing a finding by documenting the pattern as intended, and
+  `fix-workflow.md` step 13 does exactly that for `deliberate-unrecorded`. Every run followed
+  step 13, which is the intended reading. Changed: the prohibition and its neighbour name a
+  deliberate verdict as the third way a cost-bearing finding closes.
+- `investigate.md` stops at the first decisive source, while `deliberate-unrecorded` asked for
+  "no record", a source read after the history. Changed: the row drops "and no record"; the
+  order already decides it.
+
+Left open, no run went wrong on them: SKILL step 40 against the `Verdict` line on a Recurring
+Pattern member (all runs kept full entries); `unreachable` off the hot path (all runs applied the
+zero-cost form); the auto re-scan meeting the resume question of step 6 with no operator; the
+bench logs of a second auto cycle overwriting the first.

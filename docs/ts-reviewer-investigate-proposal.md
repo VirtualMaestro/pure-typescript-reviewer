@@ -144,7 +144,7 @@ verdicts:
 |---|---|---|
 | `defect` | defect evidence in the first decisive source, a caller reaching the failure included | the fix applies as the report states it |
 | `deliberate-recorded` | intent evidence in a record | no change, and the finding closes citing the record |
-| `deliberate-unrecorded` | intent evidence in a test or the history, and no record | a comment at the site citing the evidence, and no code change |
+| `deliberate-unrecorded` | intent evidence in a test or the history | a comment at the site citing the evidence, and no code change |
 | `unreachable` | the callers: every one known, none reaching the failure | the fix applies when it adds no cost; a costly one keeps the code |
 | `unknown` | no source decisive | the fix applies as for `defect`, and the report names the verdict |
 
@@ -394,7 +394,7 @@ report`. A `3.2.0` red run makes the first and the third.
 | 2 | build the fixture | `fixtures/intent-corpus/` as §8 lays it out | `npx tsc --noEmit` clean, `npm test` in the project fails only the case 4 test, `git log -L` returns each planted message; `npm test` of this repository unaffected | done, 2026-10-01: `tsc` clean, 4 tests with 1 failing as planted, `git log -L` returns each planted message |
 | 3 | red run: `3.2.0` against the fixture, 1 run | the first table of `fixtures/intent-corpus/RESULTS.md` | the scan flags cases 1–6 and drops 7, and >= 2 of cases 1–3 show a forbidden outcome | 3 runs on 2026-10-01: 1 of cases 1–3 forbidden in each, case 2; the gate fails as written; **decided 2026-10-01:** failure (b), a finding left open with no record, counts, and the gate passes in all 3 (`RESULTS.md`) |
 | 4 | build slice 2 | the edits of §5, version `3.3.0` | `npm test` passes, with the widened and the new test | done, 2026-10-01: 22 tests, 20 pass, 2 skipped offline |
-| 5 | green runs: 3 cold runs of `3.3.0`, plus 1 cost corpus run | 4 more rows | the pass bar below, in each run | open |
+| 5 | green runs: 3 cold runs of `3.3.0`, plus 1 cost corpus run | 4 more rows | the pass bar below, in each run | in progress: runs 1..3 of `57e9509` pass; the cost run holds slice 1 but showed a wrong key prediction; 2 lines changed (`RESULTS.md`), reruns next |
 
 **The gate at step 3.** Fewer than 2 of cases 1–3 forbidden means the model already reads tests
 and history unprompted; stop, record, and reconsider whether a prohibition is the whole fix.
