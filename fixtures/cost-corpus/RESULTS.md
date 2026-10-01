@@ -14,6 +14,9 @@ the key, out of 7, or `n/a` for a `3.1.0` run.
 | 2026-10-01 | 3.2.0 (`0a8c4e0`), green run 4 | as run 1 | Opus 5.5 | 7 | ok r4 | ok r1, designed at fix time | ok r7: `[SKIPPED: rung 7 alloc]`, both variants, no answer | ok r7: `[SKIPPED: rung 7 check]` | ok | ok | ok r3 | 3 of 3, lines of the logs | **bar passed** |
 | 2026-10-01 | 3.2.0 (`0a8c4e0`), green run 5 | as run 1 | Opus 5.5 | 7 | ok r4 | ok r1 | not reported: the pass flagged it `yes/alloc`, and the parent dropped it at report time as "advancing the body is the function's purpose" | ok r7, plus a second rung 7 entry for the Error Handling finding on line 7 | ok | ok | ok r3 | 3 of 3 | bar missed on case 3 |
 | 2026-10-01 | 3.2.0 (`0a8c4e0`), green run 6 | as run 1 | Opus 5.5 | 7 | ok r4 | ok r1 | forbidden: fix mode replaced the reported `alloc` fix with a JSDoc line, `[FIXED]` with no `Fix design` line, reasoning that a commented pattern is dropped on a rescan | ok r7 | ok | ok | ok r3 | 3 of 3 | bar missed on case 3 |
+| 2026-10-01 | 3.2.0 (`807eadf`), green run 7 | as run 1 | Opus 5.5 | 7 | ok r4 | ok r1 | ok r7: `[SKIPPED: rung 7 alloc]`, both variants, code untouched, no answer | ok r7: `[SKIPPED: rung 7 check]`, as case 3 | ok | ok | ok r3 | 3 of 3; processBatches logged 63 -> 122 ms, 76..78 ms on 3 reruns the agent noted | **bar passed** |
+| 2026-10-01 | 3.2.0 (`807eadf`), green run 8 | as run 1 | Opus 5.5 | 7 | ok r4 | ok r1 | ok r7, as run 7 | ok r7, as run 7 | ok | ok | ok r3 | 3 of 3 | **bar passed** |
+| 2026-10-01 | 3.2.0 (`807eadf`), green run 9 | as run 1 | Opus 5.5 | 7 | ok r4 | ok r1 | ok r7, as run 7 | ok r7, as run 7 | ok | ok | ok r3 | 3 of 3 | **bar passed**: step 5 of the proposal is done |
 
 Run directories, kept for inspection: `C:\Users\virtu\AppData\Local\Temp\cost-corpus-H7XKfs` (run 1),
 `C:\Users\virtu\AppData\Local\Temp\cost-corpus-Nqpffu` (run 2). Green runs of `2f36971`:
@@ -63,6 +66,26 @@ and calling the finding closed. That is the operator's call (§10.4 of the propo
   6 asked; run 6 wrote the design's kind.
 
 Run directories: `cost-corpus-rBxeLQ` (4), `cost-corpus-jWqvAZ` (5), `cost-corpus-Hj4EOy` (6).
+
+## The green runs of `807eadf`: the bar holds 3 of 3
+
+No skill text changed after these runs. Run directories: `cost-corpus-XZjrSz` (7),
+`cost-corpus-6Ku3w9` (8), `cost-corpus-OaMBzJ` (9).
+
+Questions the runs raised and answered for themselves the same way, left open because no run
+went wrong on them; each is a candidate for the next wording pass, which reruns all 3:
+
+- whether a cost-bearing finding counts toward the 3 members of a Recurring Pattern (SKILL steps
+  40 and 43): all 3 runs counted it out and kept the full entries;
+- whether the refill of rung 4 is itself a `pass` cost inside the marker: all 3 accepted it as
+  "only a refill remains" says;
+- whether a rung 7 finding carries bench numbers: its code is untouched, so the 2 numbers are
+  the same run's;
+- `[SKIPPED: requires manual review]` in `fix-workflow.md` against "do not leave a cost-bearing
+  finding without a design": run 8 chose the ladder, which is the intended reading.
+
+Every run applied several files before 1 `tsc` run, against `fix-workflow.md` step 22; the
+compiler was clean each time. That is a `3.1.x` behaviour, outside this proposal.
 
 ## Fixture changes
 

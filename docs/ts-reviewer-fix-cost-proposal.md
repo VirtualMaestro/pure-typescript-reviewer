@@ -4,7 +4,9 @@
 opened in this repository. This document is the whole input: the discussion that produced it
 happened in another repository and is not available to that session.
 **Status:** steps 1..4 of §9 are done (2026-09-30 and 2026-10-01): slice 1 is built as `3.2.0`
-and `npm test` passes. Step 5, the 3 green runs, is in progress: see §9.
+and `npm test` passes. Step 5 is done: 3 green runs of `807eadf` pass the bar, after 2 wording
+changes recorded in `fixtures/cost-corpus/RESULTS.md`. Slice 1 is complete; slices 2 and 3
+each get their own proposal (§7), and 1 smoke run on Codex is still open (§9).
 **Decided:** the fix-cost logic lives inside this package, not in a separate global skill
 package, so `ts-reviewer` stays self-contained and installs with one command. The content is
 cut in 3 layers (§3) so that a later port to C#/Unity copies 1 file, rewrites 1 file, and
@@ -570,7 +572,7 @@ Protocol, per run:
 | 2 | build the fixture | `fixtures/cost-corpus/` as §8 lays it out | `npx tsc --noEmit` is clean inside `project/`, `npm run bench` prints 6 lines; the operator has approved `KEY.md`; `npm test` of this repository is unaffected | open |
 | 3 | red run: the current `3.1.0` skill against the fixture, 1 run | the first table in `RESULTS.md` | the scan flags all 7 cases, and >= 3 of the 5 cost-bearing cases show a forbidden outcome: the costly fix applied, or the finding declined with no design | done, 2 runs on 2026-09-30; run 2 passes the gate at 3 of 5: see the outcome below |
 | 4 | build slice 1 | the edits of §5, version `3.2.0` | `npm test` passes, including the 2 new tests | done, 2026-10-01: 21 tests, 19 pass, 2 skipped offline |
-| 5 | green runs: the `3.2.0` build against the fixture, 3 cold runs | 3 more tables in `RESULTS.md` | the pass bar below, in each of the 3 runs | in progress: runs 1..3 of `2f36971` missed the bar on case 3 and the case 2 field; runs 4..6 of `0a8c4e0` passed 1 of 3, case 3 again; the wording changed twice (`RESULTS.md`), 3 reruns next |
+| 5 | green runs: the `3.2.0` build against the fixture, 3 cold runs | 3 more tables in `RESULTS.md` | the pass bar below, in each of the 3 runs | done, 2026-10-01: runs 7..9 of `807eadf` pass the bar 3 of 3, after 2 wording changes on runs 1..6 (`RESULTS.md`) |
 
 **The gate at step 3 is real.** The red run scores the fix outcome only, since `3.1.0` emits no
 cost fields. A case the scan does not flag is a defect of the fixture, not of the skill: fix
