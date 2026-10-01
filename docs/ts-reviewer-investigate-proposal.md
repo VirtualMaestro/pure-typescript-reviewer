@@ -2,8 +2,8 @@
 
 **Audience:** the agent maintaining the `ts-reviewer` skill repository. This document is the
 whole input for slice 2; slice 1 is `docs/ts-reviewer-fix-cost-proposal.md`, complete as `3.2.0`.
-**Status:** step 1 of §9: the proposal is written, and §10 waits for the operator. Nothing of
-slice 2 is under `ts-reviewer/`.
+**Status:** step 1 of §9 is done: the operator answered §10 on 2026-10-01, every answer the
+recommendation. Step 2, the fixture, is done; step 3, the red run, is next. Nothing of slice 2 is under `ts-reviewer/` yet.
 **Decided before this proposal** (slice 1, §7): slice 2 is 1 run mode and 1 stack-free file
 `references/investigate.md`; the evidence order is cheapest first and stops at the first
 decisive source; `unknown` is a valid verdict and is not `defect`; `deliberate-unrecorded` ends
@@ -380,8 +380,8 @@ report`. A `3.2.0` red run makes the first and the third.
 
 | Step | Work | Output | Exit criterion | Status |
 |---|---|---|---|---|
-| 1 | this proposal | `docs/ts-reviewer-investigate-proposal.md` | the operator has answered §10 | open: written 2026-10-01 |
-| 2 | build the fixture | `fixtures/intent-corpus/` as §8 lays it out | `npx tsc --noEmit` clean, `npm test` in the project fails only the case 4 test, `git log -L` returns each planted message; `npm test` of this repository unaffected | open |
+| 1 | this proposal | `docs/ts-reviewer-investigate-proposal.md` | the operator has answered §10 | done, 2026-10-01 |
+| 2 | build the fixture | `fixtures/intent-corpus/` as §8 lays it out | `npx tsc --noEmit` clean, `npm test` in the project fails only the case 4 test, `git log -L` returns each planted message; `npm test` of this repository unaffected | done, 2026-10-01: `tsc` clean, 4 tests with 1 failing as planted, `git log -L` returns each planted message |
 | 3 | red run: `3.2.0` against the fixture, 1 run | the first table of `fixtures/intent-corpus/RESULTS.md` | the scan flags cases 1–6 and drops 7, and >= 2 of cases 1–3 show a forbidden outcome | open |
 | 4 | build slice 2 | the edits of §5, version `3.3.0` | `npm test` passes, with the widened and the new test | open |
 | 5 | green runs: 3 cold runs of `3.3.0`, plus 1 cost corpus run | 4 more rows | the pass bar below, in each run | open |
@@ -394,9 +394,10 @@ every accepted outcome holds and no forbidden one is in `git diff`; case 7 is no
 investigate step leaves `git diff` empty; and the cost corpus run passes slice 1's bar with every
 verdict `unknown`.
 
-## 10. Questions for the operator
+## 10. Decided by the operator, 2026-10-01
 
-Each has a recommendation; the proposal is written to it.
+Questions 2..5 were put to the operator, who chose the recommendation on each. Question 1 was
+not put separately: the proposal stands on its recommendation, which case 3 of §8 needs.
 
 1. **Which findings does investigate cover?** Recommended: every `###` entry. Alternative: only
    `Hot path` entries and `Auto-fixable: No` entries, where intent changes the outcome most. The
