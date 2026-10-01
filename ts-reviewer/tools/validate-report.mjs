@@ -128,7 +128,7 @@ const totalMatch = lines[totalLine]?.match(/^\*\*Total issues:\*\* (\d+) \((\d+)
 if (!fixMode && !totalMatch) fail(totalLine + 1, "Total issues has an invalid shape");
 
 // ── findings ────────────────────────────────────────────────────────────────
-// A table in an issue section is read by its header: the summary table of workflow step 46 carries
+// A table in an issue section is read by its header: the summary table of workflow step 49 carries
 // issues, and the Recurring Patterns table carries patterns whose members are counted where they sit.
 const cells = (line) => line.split("|").slice(1, -1).map((cell) => cell.trim());
 const isSummaryTable = (header) => header.includes("Category") && header.includes("Location");
@@ -174,13 +174,19 @@ for (const sectionName of fixMode ? [] : ISSUE_SECTIONS) {
     }
     const source = checkRepoPath(meta[2], index + metaAt + 2);
     const sourceLine = Number(meta[3]);
-    // Workflow step 38 merges every finding on one file and line into one entry naming each
+    // Workflow step 39 merges every finding on one file and line into one entry naming each
     // category raised, so a second entry on that line is the merge that did not happen.
     const key = `${meta[2]}:${sourceLine}`.toLowerCase();
     if (duplicates.has(key)) fail(index + 1, `duplicate finding; first entry is at line ${duplicates.get(key)}`);
     else duplicates.set(key, index + 1);
     if (!block.some((line) => line.startsWith("**Problem:** "))) fail(index + 1, "finding has no Problem field");
     if (!block.some((line) => line.startsWith("**Fix:** "))) fail(index + 1, "finding has no Fix field");
+    // The Hot path line is optional and marks a cost-bearing finding; a value outside its 2 sets,
+    // `no` or `none` included, is a finding that should not carry the line at all.
+    const costAt = block.findIndex((line) => line.startsWith("**Hot path:**"));
+    if (costAt >= 0 && !/^\*\*Hot path:\*\* (yes|unknown) \| \*\*Fix cost:\*\* (alloc|pass|check|async)$/.test(block[costAt])) {
+      fail(index + costAt + 2, "Hot path line has an invalid shape");
+    }
 
     const fence = block.findIndex((line) => /^```[^`]*$/.test(line));
     const fenceEnd = fence >= 0 ? block.findIndex((line, at) => at > fence && line === "```") : -1;
@@ -256,6 +262,11 @@ for (const sectionName of fixMode ? FIX_ENTRY_SECTIONS : []) {
     const block = lines.slice(index + 1, end);
     const fences = block.filter((line) => /^```[^`]*$/.test(line)).length;
     if (bucket === "Fixed" && fences < 4) fail(index + 1, "a [FIXED] entry carries a BEFORE and an AFTER snippet");
+    // Fix mode designs every cost-bearing finding, auto-fixable or not, so one still in its scan
+    // shape is a silent skip.
+    if (bucket === "Remaining" && block.some((line) => line.startsWith("**Hot path:**"))) {
+      fail(index + 1, "cost-bearing finding was not attempted");
+    }
     const fileAt = block.findIndex((line) => line.includes("**File:** `"));
     const file = fileAt >= 0 ? block[fileAt].match(/\*\*File:\*\* `([^`]+)`/) : null;
     if (!file) fail(index + 1, "entry has no File field");

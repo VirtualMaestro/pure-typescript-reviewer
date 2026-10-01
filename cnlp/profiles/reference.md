@@ -55,6 +55,11 @@ custom_sections:
 - baseline_verdicts
 - report_format
 - test_runners
+- ladder
+- hot_marker
+- cost_kinds
+- rung_forms
+- measurement
 
 enforcement:
 - `node --test cnlp/skill-format.test.js`, over every file in the directory its `REFERENCE_DIR` names

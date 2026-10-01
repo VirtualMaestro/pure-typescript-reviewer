@@ -447,6 +447,36 @@ test("validate-report reads the audit trail a fix run leaves, and holds its coun
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("the fix design algorithm names no stack", () => {
+  const raw = readFileSync(path.join(repoRoot, "ts-reviewer", "references", "fix-design.md"), "utf8");
+  assert.doesNotMatch(raw, /typescript|javascript|\bnode\b|\bv8\b|\btsc\b|\bnpm\b|\.ts\b|jsdoc|eslint|vitest/i);
+});
+
+test("validate-report holds the Hot path line and the design of every cost-bearing finding", () => {
+  const medium = "**Category:** Code Quality | **File:** `src/a.ts` | **Line:** 3 | **Auto-fixable:** Yes | **New code:** No\n";
+  const { dir } = newRepo();
+  writeReportFixture(dir);
+  editReport(dir, (report) => report.replace(medium, `${medium}**Hot path:** unknown | **Fix cost:** alloc\n`));
+  const accepted = validate(dir);
+  assert.equal(accepted.status, 0, accepted.stderr);
+
+  editReport(dir, (report) => report.replace("**Fix cost:** alloc", "**Fix cost:** none"));
+  const rejected = validate(dir);
+  assert.equal(rejected.status, 1);
+  assert.match(rejected.stderr, /Hot path line has an invalid shape/);
+  rmSync(dir, { recursive: true, force: true });
+
+  // In the audit trail a cost-bearing entry with no status tag is a finding fix mode never designed.
+  const fix = newRepo().dir;
+  writeFixReportFixture(fix);
+  const untagged = "**Category:** Boundary Validation | **File:** `src/a.ts` | **Line:** 1 | **Auto-fixable:** No | **New code:** No\n";
+  editReport(fix, (report) => report.replace(untagged, `${untagged}**Hot path:** yes | **Fix cost:** check\n`));
+  const skipped = validate(fix);
+  assert.equal(skipped.status, 1);
+  assert.match(skipped.stderr, /cost-bearing finding was not attempted/);
+  rmSync(fix, { recursive: true, force: true });
+});
+
 test("a missing diagram warns, and an overclaimed coverage fails", () => {
   const { dir } = newRepo();
   writeReportFixture(dir);

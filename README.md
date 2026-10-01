@@ -142,6 +142,19 @@ Auto-fix code smells
 
 Runs scan, shows you the summary, asks if you want to proceed with fixes, then runs the full fix cycle. If everything is clean afterward, the report is deleted.
 
+### Hot paths — `@hotpath`
+
+Some correct fixes are the wrong default in a frame loop or a message handler: `toSorted()` allocates on every call, a schema parse validates every message. Mark such code with a JSDoc tag:
+
+```typescript
+/** @hotpath */
+export function updateFrame(entities: Entity[], dt: number): void { /* ... */ }
+```
+
+The tag is optional. `@hotpath` on a function, method, or class covers its body; in a file's leading comment it covers the whole file. Without any marker, only loop bodies and iteration callbacks (`map`, `forEach`, `sort`, ...) count as hot. A project running `eslint-plugin-jsdoc` with `check-tag-names` has to declare `hotpath` in `definedTags`.
+
+A finding on a hot path whose fix adds a per-call cost carries a `**Hot path:**` line in the report. Fix mode does not apply such a fix as written: it walks a ladder of 7 rungs — remove the case through types, move the cost to the boundary, hoist it, reuse a module-owned buffer, check it in development builds only, split off the common case — and applies the first that closes the finding. When none does (rung 7), the code stays untouched and you are shown both variants: the reported fix with its cost, and the current code with its defect. You pick one; with no answer the entry is recorded as `[SKIPPED: rung 7 <kind>]`. A `bench` or `benchmark` script in `package.json` is run before and after, and both numbers go on every designed fix.
+
 ## Scope Modes
 
 By default the entire codebase is reviewed. You can narrow the scope:
@@ -216,7 +229,9 @@ ts-reviewer/
     ├── tsconfig.md                   # Checklist: strict flags, target/lib, module resolution, deprecated
     ├── dependency-hygiene.md         # Checklist: lockfiles, versions, npm audit, dependency choice
     ├── architecture.md               # Checklist: shallow modules, coupling, dependency direction, seams
-    └── fix-workflow.md               # Complete fix protocol: tests, verification, rollback
+    ├── fix-workflow.md               # Complete fix protocol: tests, verification, rollback
+    ├── fix-design.md                 # Stack-free ladder for designing a fix on a hot path
+    └── stack-cost.md                 # The @hotpath marker, cost kinds, rung forms, bench command
 ```
 
 **SKILL.md** is the orchestrator — it routes between scan/fix/auto modes, detects domain flags (`--arch`, `--full`), defines scope detection, severity scale, and report format.

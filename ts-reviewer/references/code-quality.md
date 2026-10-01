@@ -6,6 +6,7 @@ scope:
 - lightweight over-engineering checks that stay active in a default scan
 - every error-handling check belongs to `references/error-handling.md`
 - the full depth framework, the deletion test, seams, and module deepening, belongs to `references/architecture.md`, which loads only under `--arch` or `--full`
+- the hot path that `collections and iteration` names is the one `hot_marker` in `references/stack-cost.md` defines
 
 checks:
 - complexity — function length > 50 lines: Medium

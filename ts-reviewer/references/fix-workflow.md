@@ -41,13 +41,17 @@ File: src/api/handler.ts
 <test_command> 2>&1 | tee "$TMPDIR/ts-reviewer-baseline.log"
 ```
 9. record the baseline: total tests, passing, failing with the list, and the command used
-10. process 1 file at a time, reading its current state before each fix, since an earlier fix in the same file has shifted the lines
-11. apply the fix the report describes
-12. update every reference to a renamed or replaced symbol across the codebase, its imports and its usages, when the fix replaces a pattern such as `enum` with `as const`
-13. write a regression test for each testable fix when step 5 found a runner: an incorrect cast, an injection sink, a floating promise, or a missing null check
-14. skip the regression test for an untestable fix: a naming or formatting change, a config flag, a modernization that keeps the behaviour, or a complexity split
-15. name the regression test file `<original-file>.reviewer-fixes.test.ts`, following the naming, the placement, and the framework the project already uses
-16. label each test with the issue title, and keep it to the specific fix rather than the whole function
+10. run the measurement `references/stack-cost.md` names when the report holds a `Hot path` line, and record it with the baseline
+11. process 1 file at a time, reading its current state before each fix, since an earlier fix in the same file has shifted the lines
+12. apply the fix the report describes when the finding carries no `Hot path` line
+13. read `references/fix-design.md` and `references/stack-cost.md` before the first finding that carries a `Hot path` line
+14. design the fix of a `Hot path` finding, auto-fixable or not, as `references/fix-design.md` states, and apply the design in place of the reported fix
+15. leave the code of a finding whose design ends at rung 7 untouched, and carry its 2 variants to step 35
+16. update every reference to a renamed or replaced symbol across the codebase, its imports and its usages, when the fix replaces a pattern such as `enum` with `as const`
+17. write a regression test for each testable fix when step 5 found a runner: an incorrect cast, an injection sink, a floating promise, or a missing null check
+18. skip the regression test for an untestable fix: a naming or formatting change, a config flag, a modernization that keeps the behaviour, or a complexity split
+19. name the regression test file `<original-file>.reviewer-fixes.test.ts`, following the naming, the placement, and the framework the project already uses
+20. label each test with the issue title, and keep it to the specific fix rather than the whole function
 ```typescript
 describe('ts-reviewer fixes: src/auth/token.ts', () => {
   it('should not use unsafe cast for token payload (type-safety)', () => {
@@ -55,46 +59,50 @@ describe('ts-reviewer fixes: src/auth/token.ts', () => {
   });
 });
 ```
-17. tell the operator that the `.reviewer-fixes` files are candidates to rename and merge into the existing suites: the naming is a handoff convention and not a permanent home
-18. run `npx tsc --noEmit 2>&1` after each file, and use `--incremental` or check every 3..5 files instead where the work plan > 30 files and a full typecheck is slow
-19. fix a new compiler error in the file just changed or in a file the change affects, then run the compiler again to confirm
-20. revert the last fix in the file and mark the issue `[FIX FAILED: caused type errors]` when the same error survives 2 attempts
-21. repeat steps 10..20 for each file in the work plan
-22. run the linter over the changed files once every file is fixed
+21. tell the operator that the `.reviewer-fixes` files are candidates to rename and merge into the existing suites: the naming is a handoff convention and not a permanent home
+22. run `npx tsc --noEmit 2>&1` after each file, and use `--incremental` or check every 3..5 files instead where the work plan > 30 files and a full typecheck is slow
+23. fix a new compiler error in the file just changed or in a file the change affects, then run the compiler again to confirm
+24. revert the last fix in the file and mark the issue `[FIX FAILED: caused type errors]` when the same error survives 2 attempts
+25. repeat steps 11..24 for each file in the work plan
+26. run the linter over the changed files once every file is fixed
 ```bash
 # ESLint
 npx eslint [changed_files] --format json 2>/dev/null
 # or Biome
 npx biome check [changed_files] --reporter json 2>/dev/null
 ```
-23. apply `npx eslint --fix [files]` or `npx biome check --fix [files]`, fix the rest by hand, and run the linter again to confirm it is clean
-24. run the full test suite and compare it against the baseline through `baseline_verdicts`
+27. apply `npx eslint --fix [files]` or `npx biome check --fix [files]`, fix the rest by hand, and run the linter again to confirm it is clean
+28. run the full test suite and compare it against the baseline through `baseline_verdicts`
 ```bash
 <test_command> 2>&1 | tee "$TMPDIR/ts-reviewer-postfix.log"
 ```
-25. read the failure and the stack trace of each regression, and identify the fix that caused it from the diff of that file
-26. fix the regression, or revert the fix that caused it and mark it `[FIX REVERTED: caused test regression in <test>]`
-27. repeat the compiler, the linter, and the full suite until they are clean, with iterations <= 5
+29. read the failure and the stack trace of each regression, and identify the fix that caused it from the diff of that file
+30. fix the regression, or revert the fix that caused it and mark it `[FIX REVERTED: caused test regression in <test>]`
+31. repeat the compiler, the linter, and the full suite until they are clean, with iterations <= 5
 ```
 Iteration 1: Fixed 12/15 issues. 2 test regressions found.
 Iteration 2: Fixed 2 regressions. 1 new tsc error.
 Iteration 3: Fixed tsc error. All tests pass. Clean.
 -> Done at iteration 3.
 ```
-28. stop fixing once the fifth iteration ends with the compiler, the linter, or the suite still not clean, leave the code as it stands, and add a Stabilization section to the report listing the unresolved regressions for the operator
-29. show the operator what a `needs-confirm` architecture finding would change, and describe the reorganization or the interface change
-30. apply an approved `needs-confirm` finding through the same file-by-file compiler loop, and mark a rejected one `[SKIPPED: user rejected]`
-31. rerun Knip, dependency-cruiser, and co-change through the Architecture workflow when the report contains architecture findings
-32. delete `code-smells/report.md` when every issue is fixed, and tell the operator "All N issues fixed. Report deleted. Run scan again to verify."
-33. keep `code-smells/` after deleting the report, state what it contains, and ask before removing the directory
-34. rewrite `code-smells/report.md` in the shape of `report_format` when any issue remains, carrying both what was fixed and what was not, and validate it with the command of step 1
-35. leave every change in the working tree, unstaged and uncommitted, including the new regression test files
+32. stop fixing once the fifth iteration ends with the compiler, the linter, or the suite still not clean, leave the code as it stands, and add a Stabilization section to the report listing the unresolved regressions for the operator
+33. show the operator what a `needs-confirm` architecture finding would change, and describe the reorganization or the interface change
+34. apply an approved `needs-confirm` finding through the same file-by-file compiler loop, and mark a rejected one `[SKIPPED: user rejected]`
+35. show the operator the 2 variants of each rung 7 design, and apply the variant the operator picks through the same file-by-file compiler loop
+36. tag a rung 7 finding the operator did not apply `[SKIPPED: rung 7 <kind>]`
+37. run the measurement again after the last change to the code, and write both numbers on every designed fix
+38. rerun Knip, dependency-cruiser, and co-change through the Architecture workflow when the report contains architecture findings
+39. delete `code-smells/report.md` when every issue is fixed, and tell the operator "All N issues fixed. Report deleted. Run scan again to verify."
+40. keep `code-smells/` after deleting the report, state what it contains, and ask before removing the directory
+41. rewrite `code-smells/report.md` in the shape of `report_format` when any issue remains, carrying both what was fixed and what was not, and validate it with the command of step 1
+42. leave every change in the working tree, unstaged and uncommitted, including the new regression test files
 
 forbidden_behaviors:
 - do not commit and do not stage: the operator reviews and decides
 - do not delete a file unless the report flagged the whole file as dead code
 - do not modify a file outside the issues in `code-smells/report.md`, apart from a cascading change such as an import updated after a type rename
 - do not change what the code does: a fix changes how it does it, and only a security fix intentionally changes behaviour, such as validation that now rejects malicious input
+- do not change what the code costs on a hot path: a fix that adds a cost kind there goes through `references/fix-design.md`
 - do not refactor a whole file because of 1 issue: fix exactly what the report names
 - do not apply an ambiguous or risky fix: mark it `[SKIPPED: requires manual review]` and move on, since skipping costs less than breaking the build
 - do not revert with `git checkout -- <file>` or `git restore`: the operator can hold uncommitted changes in that file, and both commands destroy them along with the fix
@@ -119,6 +127,9 @@ report_format:
 - status tag `[FIX FAILED: <reason>]`: attempted and not completed, such as compiler errors
 - status tag `[FIX REVERTED: <reason>]`: applied, caused a test regression, and rolled back
 - status tag `[SKIPPED: requires manual review]`: too risky or too ambiguous to fix automatically
+- status tag `[SKIPPED: rung 7 <kind>]`: no rung above 7 closes the finding, and the operator kept the code or gave no answer
+- a `[SKIPPED: rung 7 <kind>]` entry carries both variants under `Recommended fix`, and the operator's answer under `Why auto-fix failed`
+- a designed fix carries the `Fix design` line and the `Rejected rungs` line under its AFTER snippet
 - no tag: not attempted, because it is not auto-fixable or out of scope
 - `Fixed`, `Failed`, `Skipped`, and `Remaining` count the entries by status tag: `[FIXED]`, then `[FIX FAILED]` with `[FIX REVERTED]`, then `[SKIPPED]`, then no tag
 - `Total issues found` is the sum of those 4 counts, and a Recurring Patterns row is not counted
@@ -149,6 +160,8 @@ report_format:
 // AFTER (applied fix)
 ```
 
+**Fix design:** rung <N> <name> | **Cost kind:** <kind> | **Measured:** <before> -> <after>, or unmeasured
+**Rejected rungs:** <N> <name>: <reason>; <N> <name>: <reason>
 **Regression test:** `path/to/file.reviewer-fixes.test.ts` (or "not applicable")
 
 ---

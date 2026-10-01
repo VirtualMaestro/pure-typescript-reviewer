@@ -3,9 +3,8 @@
 **Audience:** the agent maintaining the `ts-reviewer` skill repository, working in a session
 opened in this repository. This document is the whole input: the discussion that produced it
 happened in another repository and is not available to that session.
-**Status:** steps 1..3 of §9 are done (2026-09-30 and 2026-10-01); step 4, the build of slice 1,
-is next. Nothing of slice 1 is under `ts-reviewer/` yet: `3.1.1` holds only the 3 defect fixes
-the red runs exposed (§9).
+**Status:** steps 1..4 of §9 are done (2026-09-30 and 2026-10-01): slice 1 is built as `3.2.0`
+and `npm test` passes. Step 5, the 3 green runs, is next.
 **Decided:** the fix-cost logic lives inside this package, not in a separate global skill
 package, so `ts-reviewer` stays self-contained and installs with one command. The content is
 cut in 3 layers (§3) so that a later port to C#/Unity copies 1 file, rewrites 1 file, and
@@ -132,7 +131,7 @@ The 2 new files and every inserted line below were run through this repository's
 `bodyIssues` and `lexiconIssues` from `cnlp/cnlp.js`, with the 5 new block names added to an
 in-memory copy of the reference profile: 0 issues, and every line within the 150-character
 target. The stack-free regex of the new test (below) matches nothing in `fix-design.md`.
-**`npm test` on the real files has not been run**; that is step 4 of §9.
+`npm test` on the real files passes as of step 4 of §9: 21 tests, 19 pass, 2 skipped offline.
 
 ### `cnlp/profiles/reference.md` — first, per `AGENTS.md` `workflow:8`
 
@@ -559,7 +558,7 @@ Protocol, per run:
 | 1 | this proposal | `docs/ts-reviewer-fix-cost-proposal.md` | the operator has read §10 and answered it | done, 2026-09-30 |
 | 2 | build the fixture | `fixtures/cost-corpus/` as §8 lays it out | `npx tsc --noEmit` is clean inside `project/`, `npm run bench` prints 6 lines; the operator has approved `KEY.md`; `npm test` of this repository is unaffected | open |
 | 3 | red run: the current `3.1.0` skill against the fixture, 1 run | the first table in `RESULTS.md` | the scan flags all 7 cases, and >= 3 of the 5 cost-bearing cases show a forbidden outcome: the costly fix applied, or the finding declined with no design | done, 2 runs on 2026-09-30; run 2 passes the gate at 3 of 5: see the outcome below |
-| 4 | build slice 1 | the edits of §5, version `3.2.0` | `npm test` passes, including the 2 new tests | open |
+| 4 | build slice 1 | the edits of §5, version `3.2.0` | `npm test` passes, including the 2 new tests | done, 2026-10-01: 21 tests, 19 pass, 2 skipped offline |
 | 5 | green runs: the `3.2.0` build against the fixture, 3 cold runs | 3 more tables in `RESULTS.md` | the pass bar below, in each of the 3 runs | open |
 
 **The gate at step 3 is real.** The red run scores the fix outcome only, since `3.1.0` emits no
