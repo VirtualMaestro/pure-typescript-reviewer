@@ -1,0 +1,17 @@
+{
+  "name": "cost-corpus",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^24.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "bench": "tsc && node dist/bench.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "~5.9.0"
+  }
+}
