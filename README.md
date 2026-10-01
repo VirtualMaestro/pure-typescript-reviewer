@@ -253,7 +253,7 @@ The test catches a check line that lost its severity, a block the profile does n
 4. **Analysis** — specialized passes judge the candidates against the active checklists, running in waves of `--agents` at a time; each pass writes its own `code-smells/passes/<id>.jsonl`, and `passes/queue.md` marks which are done, so a stopped run resumes from the last checkpoint. Tool output is never a finding by itself.
 5. **Report** — deduplicates, applies severity boost (scoped modes), consolidates recurring patterns, enforces a noise budget, writes `code-smells/report.md`, and validates its contract before the scan succeeds. Architecture findings appear in a separate `## Architecture Opportunities` section at the end.
 
-Validate a report directly with `node ts-reviewer/tools/validate-report.mjs --repo . --report code-smells/report.md`. It checks headings, counts, finding anchors, architecture fields, and linked artifacts without adding a dependency. An **error** is a defect of the report that rewriting it fixes; a **warning** names an outcome of the mechanical pre-pass — a graph with no diagram, say — that the report cannot fix, and warnings do not fail the run.
+Validate a report directly with `node ts-reviewer/tools/validate-report.mjs --repo . --report code-smells/report.md`. It checks headings, counts, finding anchors, architecture fields, and linked artifacts without adding a dependency, and it reads both the scan report and the audit trail a fix run leaves in its place. An **error** is a defect of the report that rewriting it fixes; a **warning** names an outcome of the mechanical pre-pass — a graph with no diagram, say — that the report cannot fix, and warnings do not fail the run.
 
 ### Fix mode
 

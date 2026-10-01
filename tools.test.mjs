@@ -328,6 +328,125 @@ test("validate-report keeps the optional sections and a snippet opening above it
   rmSync(dir, { recursive: true, force: true });
 });
 
+// The audit trail fix mode leaves in place of the scan report: one entry per status tag, in the
+// sections and with the header counts the `report_format` block of fix-workflow.md gives.
+function writeFixReportFixture(dir) {
+  write(dir, "src/a.ts", "export function compute(input: unknown): number {\n  return 2;\n}\n");
+  write(dir, "code-smells/report.md", `# TypeScript Code Review Report
+
+**Project:** fixture
+**Scanned:** 2026-08-02
+**Fix run:** 2026-08-03
+**Total issues found:** 4
+**Fixed:** 1 | **Failed:** 1 | **Skipped:** 1 | **Remaining:** 1
+
+## Fix Summary
+
+1 issue fixed, 3 remain.
+
+## Fixed Issues
+
+### Unsafe cast reaches the return — [FIXED]
+
+**Original severity:** High | **Category:** type-safety | **File:** \`src/a.ts\` | **Line:** 2
+
+\`\`\`typescript
+// BEFORE (original code)
+  const raw = input as { value: number };
+\`\`\`
+
+\`\`\`typescript
+// AFTER (applied fix)
+  const raw = parse(input);
+\`\`\`
+
+**Regression test:** not applicable
+
+---
+
+## Remaining Issues
+
+### Unfixed (failed/reverted/skipped)
+
+### The scale is a bare literal — [FIX FAILED: caused type errors]
+
+**Severity:** Medium | **Category:** code-quality | **File:** \`src/a.ts\` | **Line:** 2
+
+\`\`\`typescript
+  return 2;
+\`\`\`
+
+**Problem:** the constant carries no name
+**Recommended fix:** name it
+**Why auto-fix failed:** the name collided with an import
+
+---
+
+### The return type is inferred — [SKIPPED: requires manual review]
+
+**Severity:** Low | **Category:** type-safety | **File:** \`src/a.ts\` | **Line:** 1
+
+\`\`\`typescript
+export function compute(input: unknown): number {
+\`\`\`
+
+**Problem:** the boundary is implicit
+**Recommended fix:** annotate it
+**Why auto-fix failed:** the annotation needs a domain decision
+
+---
+
+### Not attempted (not auto-fixable or not in scope)
+
+### The parameter is unvalidated — Medium
+
+**Category:** Boundary Validation | **File:** \`src/a.ts\` | **Line:** 1 | **Auto-fixable:** No | **New code:** No
+
+\`\`\`typescript
+export function compute(input: unknown): number {
+\`\`\`
+
+**Problem:** the parameter is never parsed
+**Fix:** parse it at the seam
+
+---
+
+## Config Issues
+
+No config finding.
+
+## Recurring Patterns
+
+| Pattern | Occurrences | Severity treatment |
+|---|---|---|
+| unvalidated casts | 2 | 1 fixed, 1 remains |
+`);
+}
+
+test("validate-report reads the audit trail a fix run leaves, and holds its counts", () => {
+  const { dir } = newRepo();
+  writeFixReportFixture(dir);
+  const accepted = validate(dir);
+  assert.equal(accepted.status, 0, accepted.stderr);
+  assert.match(accepted.stdout, /4 issue\(s\), 0 warning\(s\)/);
+
+  editReport(dir, (report) => report
+    .replace("**Total issues found:** 4", "**Total issues found:** 5")
+    .replace("**Remaining:** 1", "**Remaining:** 2")
+    .replace("\n```typescript\n// AFTER (applied fix)\n  const raw = parse(input);\n```\n", "\n")
+    .replace("## Config Issues", "## Config Findings")
+    .replace("### The parameter is unvalidated — Medium", "### The parameter is unvalidated — [FIXED]"));
+  const rejected = validate(dir);
+  assert.equal(rejected.status, 1);
+  assert.match(rejected.stderr, /unknown section: Config Findings/);
+  assert.match(rejected.stderr, /missing section: Config Issues/);
+  assert.match(rejected.stderr, /a \[FIXED\] entry carries a BEFORE and an AFTER snippet/);
+  assert.match(rejected.stderr, /a \[FIXED\] entry belongs under Fixed Issues/);
+  assert.match(rejected.stderr, /Remaining says 2, found 0/);
+  assert.match(rejected.stderr, /Total issues found says 5, found 4/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test("a missing diagram warns, and an overclaimed coverage fails", () => {
   const { dir } = newRepo();
   writeReportFixture(dir);

@@ -155,7 +155,7 @@ workflow:
 35. downgrade a flagged non-High pattern that appears 5+ times across the codebase by 1 level, and report it once as a Recurring Pattern
 36. boost a finding carrying `in_diff: true` by 1 level in a scoped mode, and mark it `High [boosted, was Medium — new code]`
 37. deduplicate the findings on the same file, line, and issue, keeping 1
-38. merge the findings 2 domains raise on the same file and line into 1 entry attributing both categories, at the higher severity
+38. merge every finding on the same file and line into 1 entry, attributing each category raised and naming each issue, at the higher severity
 39. consolidate 3+ identical issues into 1 Recurring Pattern entry
 40. keep the top 15 by severity and impact when a single domain produces more than 25 Medium or Low findings, and consolidate the rest into Recurring Pattern entries with their counts
 41. write `code-smells/report.md` in the shape of `report_format`

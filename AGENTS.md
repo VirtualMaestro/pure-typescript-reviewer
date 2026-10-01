@@ -111,6 +111,6 @@ forbidden_behaviors:
 verification:
 - `npm test` runs the typecheck, the format check, and the pre-pass self-check together
 - `node --test cnlp/skill-format.test.js` runs the format check alone, as 5 tests
-- `node --test tools.test.mjs` runs 13 tool tests, and 2 are skipped without `ARCH_TOOLS_NETWORK=1`, which lets them reach `npx`
+- `node --test tools.test.mjs` runs 14 tool tests, and 2 are skipped without `ARCH_TOOLS_NETWORK=1`, which lets them reach `npx`
 - every issue is an error and none is a warning: these files are read as executable instructions, so there is no draft state
 - the failure message names the file and the line

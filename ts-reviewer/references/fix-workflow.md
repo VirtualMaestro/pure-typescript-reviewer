@@ -11,6 +11,7 @@ read_first:
 - the project is inside a git repository, so a change can be reverted
 - recommend that the operator commits or stashes uncommitted work before the fix runs, which leaves `git diff` and `git checkout -- .` usable to review and revert
 - the baseline taken in step 9 decides what counts as a regression: a test failing before the fixes is pre-existing and stays out of the work
+- the validator of step 1 reads a scan report and the audit trail a fix run leaves, so a second fix run starts from the remaining issues
 
 workflow:
 1. validate the report and stop without changing code when it reports an error, since a `warning:` line names a pre-pass outcome rather than a defect of the report
@@ -43,7 +44,7 @@ File: src/api/handler.ts
 10. process 1 file at a time, reading its current state before each fix, since an earlier fix in the same file has shifted the lines
 11. apply the fix the report describes
 12. update every reference to a renamed or replaced symbol across the codebase, its imports and its usages, when the fix replaces a pattern such as `enum` with `as const`
-13. write a regression test for each testable fix: an incorrect cast, an injection sink, a floating promise, or a missing null check
+13. write a regression test for each testable fix when step 5 found a runner: an incorrect cast, an injection sink, a floating promise, or a missing null check
 14. skip the regression test for an untestable fix: a naming or formatting change, a config flag, a modernization that keeps the behaviour, or a complexity split
 15. name the regression test file `<original-file>.reviewer-fixes.test.ts`, following the naming, the placement, and the framework the project already uses
 16. label each test with the issue title, and keep it to the specific fix rather than the whole function
@@ -86,7 +87,7 @@ Iteration 3: Fixed tsc error. All tests pass. Clean.
 31. rerun Knip, dependency-cruiser, and co-change through the Architecture workflow when the report contains architecture findings
 32. delete `code-smells/report.md` when every issue is fixed, and tell the operator "All N issues fixed. Report deleted. Run scan again to verify."
 33. keep `code-smells/` after deleting the report, state what it contains, and ask before removing the directory
-34. rewrite `code-smells/report.md` in the shape of `report_format` when any issue remains, carrying both what was fixed and what was not
+34. rewrite `code-smells/report.md` in the shape of `report_format` when any issue remains, carrying both what was fixed and what was not, and validate it with the command of step 1
 35. leave every change in the working tree, unstaged and uncommitted, including the new regression test files
 
 forbidden_behaviors:
@@ -119,12 +120,14 @@ report_format:
 - status tag `[FIX REVERTED: <reason>]`: applied, caused a test regression, and rolled back
 - status tag `[SKIPPED: requires manual review]`: too risky or too ambiguous to fix automatically
 - no tag: not attempted, because it is not auto-fixable or out of scope
+- `Fixed`, `Failed`, `Skipped`, and `Remaining` count the entries by status tag: `[FIXED]`, then `[FIX FAILED]` with `[FIX REVERTED]`, then `[SKIPPED]`, then no tag
+- `Total issues found` is the sum of those 4 counts, and a Recurring Patterns row is not counted
 ````markdown
 # TypeScript Code Review Report
 
 **Project:** <n>
 **Scanned:** <original scan date>
-**Fixed:** <fix date>
+**Fix run:** <fix date>
 **Total issues found:** N
 **Fixed:** N | **Failed:** N | **Skipped:** N | **Remaining:** N
 

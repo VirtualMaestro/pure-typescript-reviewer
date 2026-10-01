@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Checks code-smells/report.md against the `report_format` block of SKILL.md, and nothing beyond it:
-// the spec is the contract, this script is only the reader that enforces it.
+// Checks code-smells/report.md against the `report_format` block of SKILL.md, or against the one of
+// references/fix-workflow.md once a fix run has rewritten the report as its audit trail, and nothing
+// beyond them: the spec is the contract, this script is only the reader that enforces it.
 //
 //   node validate-report.mjs --repo . --report code-smells/report.md
 //
@@ -33,6 +34,14 @@ const ISSUE_SECTIONS = [
   "Highest + High Issues", "Medium Issues", "Low Issues", "Recurring Patterns", "Config Issues",
   "Pre-existing Issues (scoped modes only)",
 ];
+// The audit trail a fix run leaves, in the order the `report_format` block of fix-workflow.md gives.
+const FIX_SECTIONS = ["Fix Summary", "Fixed Issues", "Remaining Issues", "Config Issues", "Recurring Patterns"]
+  .map((name) => ({ name, required: true }));
+const FIX_ENTRY_SECTIONS = ["Fixed Issues", "Remaining Issues", "Config Issues"];
+// The 2 group headings of Remaining Issues share the entry level and are not entries.
+const FIX_GROUP_HEADINGS = new Set([
+  "### Unfixed (failed/reverted/skipped)", "### Not attempted (not auto-fixable or not in scope)",
+]);
 const SECTION_SEVERITY = { "Medium Issues": "Medium", "Low Issues": "Low" };
 const COMMON_ARCH_FIELDS = [
   "Confidence", "Files", "Problem", "Evidence", "Change type", "Proposed change",
@@ -59,6 +68,8 @@ if (!existsSync(report)) {
 }
 
 const lines = readFileSync(report, "utf8").split(/\r?\n/);
+// A fix run rewrites the report in its own shape; its first section is the signature of that shape.
+const fixMode = lines.includes("## Fix Summary");
 const errors = [];
 const warnings = [];
 const fail = (line, message) => errors.push({ line: Math.max(1, line), message });
@@ -87,14 +98,15 @@ const h2s = lines.flatMap((line, index) => {
   return match ? [{ name: match[1], index }] : [];
 });
 const actualSections = h2s.map(({ name }) => name);
-const known = new Set(SECTIONS.map((section) => section.name));
+const layout = fixMode ? FIX_SECTIONS : SECTIONS;
+const known = new Set(layout.map((section) => section.name));
 const firstHeading = (h2s[0]?.index ?? 0) + 1;
 for (const { name, index } of h2s) if (!known.has(name)) fail(index + 1, `unknown section: ${name}`);
-for (const { name, required } of SECTIONS) {
+for (const { name, required } of layout) {
   if (required && !actualSections.includes(name)) fail(firstHeading, `missing section: ${name}`);
 }
 const present = actualSections.filter((name) => known.has(name));
-const expected = SECTIONS.map(({ name }) => name).filter((name) => actualSections.includes(name));
+const expected = layout.map(({ name }) => name).filter((name) => actualSections.includes(name));
 if (present.join("\n") !== expected.join("\n")) {
   fail(firstHeading, `sections are out of order or repeated; expected: ${expected.join(" > ")}`);
 }
@@ -104,17 +116,19 @@ const sections = new Map(h2s.map((heading, index) => [heading.name, {
   line: heading.index + 1,
 }]));
 
-const metadata = ["Project", "Reviewed", "Stack", "Scope", "Files analyzed", "Total issues"];
+const metadata = fixMode
+  ? ["Project", "Scanned", "Fix run", "Total issues found", "Fixed"]
+  : ["Project", "Reviewed", "Stack", "Scope", "Files analyzed", "Total issues"];
 for (const name of metadata) {
   const matches = lines.flatMap((line, index) => line.startsWith(`**${name}:**`) ? [index] : []);
   if (matches.length !== 1) fail(matches[0] + 1 || 1, `metadata ${name} must appear exactly once`);
 }
 const totalLine = lines.findIndex((line) => line.startsWith("**Total issues:**"));
 const totalMatch = lines[totalLine]?.match(/^\*\*Total issues:\*\* (\d+) \((\d+) highest, (\d+) high, (\d+) medium, (\d+) low\)$/);
-if (!totalMatch) fail(totalLine + 1, "Total issues has an invalid shape");
+if (!fixMode && !totalMatch) fail(totalLine + 1, "Total issues has an invalid shape");
 
 // ── findings ────────────────────────────────────────────────────────────────
-// A table in an issue section is read by its header: the summary table of workflow step 39 carries
+// A table in an issue section is read by its header: the summary table of workflow step 46 carries
 // issues, and the Recurring Patterns table carries patterns whose members are counted where they sit.
 const cells = (line) => line.split("|").slice(1, -1).map((cell) => cell.trim());
 const isSummaryTable = (header) => header.includes("Category") && header.includes("Location");
@@ -125,7 +139,7 @@ let issueCount = 0;
 const duplicates = new Map();
 const headingPattern = /^### .+ — (Highest|High|Medium|Low)(?: \[.+\])?$/;
 
-for (const sectionName of ISSUE_SECTIONS) {
+for (const sectionName of fixMode ? [] : ISSUE_SECTIONS) {
   const section = sections.get(sectionName);
   if (!section) continue;
   const headings = [];
@@ -160,8 +174,8 @@ for (const sectionName of ISSUE_SECTIONS) {
     }
     const source = checkRepoPath(meta[2], index + metaAt + 2);
     const sourceLine = Number(meta[3]);
-    // Workflow step 31 merges what two domains raise on one file and line into one entry naming
-    // both categories, so a second entry on that line is the merge that did not happen.
+    // Workflow step 38 merges every finding on one file and line into one entry naming each
+    // category raised, so a second entry on that line is the merge that did not happen.
     const key = `${meta[2]}:${sourceLine}`.toLowerCase();
     if (duplicates.has(key)) fail(index + 1, `duplicate finding; first entry is at line ${duplicates.get(key)}`);
     else duplicates.set(key, index + 1);
@@ -211,6 +225,57 @@ for (const sectionName of ISSUE_SECTIONS) {
       issueCount++;
     } else if (lines[index].trim()) counting = false;
   }
+}
+
+// ── fix-mode audit trail ────────────────────────────────────────────────────
+// After a fix run the entries are the same findings, each closed by a status tag or left in its scan
+// shape, and the header counts partition them by tag. The BEFORE snippet of a fixed entry is gone
+// from the file, so no anchor check runs here.
+const fixHeading = /^### .+ — (\[FIXED\]|\[FIX FAILED: .+\]|\[FIX REVERTED: .+\]|\[SKIPPED: .+\]|(?:Highest|High|Medium|Low)(?: \[.+\])?)$/;
+const tally = { Fixed: 0, Failed: 0, Skipped: 0, Remaining: 0 };
+const bucketOf = (tag) => tag === "[FIXED]" ? "Fixed" : tag.startsWith("[FIX ") ? "Failed" : tag.startsWith("[SKIPPED") ? "Skipped" : "Remaining";
+for (const sectionName of fixMode ? FIX_ENTRY_SECTIONS : []) {
+  const section = sections.get(sectionName);
+  if (!section) continue;
+  const headings = [];
+  for (let index = section.start; index < section.end; index++) {
+    if (lines[index].startsWith("### ") && !FIX_GROUP_HEADINGS.has(lines[index])) headings.push(index);
+  }
+  for (let at = 0; at < headings.length; at++) {
+    const index = headings[at];
+    const end = headings[at + 1] ?? section.end;
+    const heading = lines[index].match(fixHeading);
+    if (!heading) {
+      fail(index + 1, "entry heading must end with a status tag or an exact severity");
+      continue;
+    }
+    const bucket = bucketOf(heading[1]);
+    tally[bucket]++;
+    if (sectionName === "Fixed Issues" && bucket !== "Fixed") fail(index + 1, "an entry under Fixed Issues carries [FIXED]");
+    if (sectionName === "Remaining Issues" && bucket === "Fixed") fail(index + 1, "a [FIXED] entry belongs under Fixed Issues");
+    const block = lines.slice(index + 1, end);
+    const fences = block.filter((line) => /^```[^`]*$/.test(line)).length;
+    if (bucket === "Fixed" && fences < 4) fail(index + 1, "a [FIXED] entry carries a BEFORE and an AFTER snippet");
+    const fileAt = block.findIndex((line) => line.includes("**File:** `"));
+    const file = fileAt >= 0 ? block[fileAt].match(/\*\*File:\*\* `([^`]+)`/) : null;
+    if (!file) fail(index + 1, "entry has no File field");
+    else checkRepoPath(file[1], index + fileAt + 2);
+  }
+}
+if (fixMode) {
+  const countsLine = lines.findIndex((line) => line.startsWith("**Fixed:**"));
+  const stated = lines[countsLine]?.match(/^\*\*Fixed:\*\* (\d+) \| \*\*Failed:\*\* (\d+) \| \*\*Skipped:\*\* (\d+) \| \*\*Remaining:\*\* (\d+)$/);
+  if (!stated) fail(countsLine + 1, "the Fixed | Failed | Skipped | Remaining line has an invalid shape");
+  else {
+    Object.keys(tally).forEach((bucket, at) => {
+      if (Number(stated[at + 1]) !== tally[bucket]) fail(countsLine + 1, `${bucket} says ${stated[at + 1]}, found ${tally[bucket]}`);
+    });
+  }
+  issueCount = Object.values(tally).reduce((sum, count) => sum + count, 0);
+  const foundLine = lines.findIndex((line) => line.startsWith("**Total issues found:**"));
+  const found = lines[foundLine]?.match(/^\*\*Total issues found:\*\* (\d+)$/);
+  if (!found) fail(foundLine + 1, "Total issues found has an invalid shape");
+  else if (Number(found[1]) !== issueCount) fail(foundLine + 1, `Total issues found says ${found[1]}, found ${issueCount}`);
 }
 
 // ── architecture opportunities ──────────────────────────────────────────────
