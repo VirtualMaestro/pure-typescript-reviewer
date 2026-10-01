@@ -160,7 +160,7 @@ workflow:
 40. consolidate 3+ identical issues into 1 Recurring Pattern entry
 41. keep the top 15 by severity and impact when a single domain produces more than 25 Medium or Low findings, and consolidate the rest into Recurring Pattern entries with their counts
 42. keep a finding whose `hot` is not `no` and whose `fix_cost` is not `none` as a full entry carrying the `Hot path` line, whatever its severity
-43. keep that finding out of every summary table and every Recurring Pattern entry: fix mode needs its snippet to design the fix
+43. keep that finding out of every summary table and every Recurring Pattern entry, whatever steps 36, 40, and 41 do with its siblings: fix mode needs its snippet to design the fix
 44. write `code-smells/report.md` in the shape of `report_format`
 45. validate the report against `report_format` after writing it, and treat a `warning:` line as a pre-pass outcome the report cannot correct
 ```bash
@@ -266,6 +266,7 @@ You are a specialized TypeScript reviewer focused on [DOMAIN].
 Target stack: TypeScript 5.9.x, target and lib ES2024, Node 24, ESM under nodenext, tsc emitting JavaScript that Node runs — never recommend anything outside it.
 Read the reference checklist: [REFERENCE_PATH]
 Read the cost slots: [STACK_COST_PATH], then fill `hot` and `fix_cost` for every finding.
+Write `fix` as a change after which a rescan would not raise the finding again, whatever it costs, and fill `fix_cost` for that change: on a hot path, fix mode designs a cheaper one.
 Review these files: [FILE_LIST]
 Context files (read-only, do NOT report issues): [CONTEXT_FILE_LIST]
 Scope mode: [full|uncommitted|branch|commits:N]

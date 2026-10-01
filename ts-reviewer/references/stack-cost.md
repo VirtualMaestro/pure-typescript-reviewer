@@ -30,7 +30,7 @@ rung_forms:
 |---|---|
 | remove | a branded type, a discriminated union, or a narrowed parameter type, which leaves the cast or the guard nothing to check |
 | boundary | 1 schema parse or 1 guard where the value enters: the exported function, the message handler, the module entry |
-| hoist | a `const` computed above the loop, or a `RegExp` or a closure lifted to module scope |
+| hoist | a `const` computed above the loop, a scratch array declared above the loop and refilled in it, or a `RegExp` or a closure lifted to module scope |
 | reuse | a module-owned scratch array or object, refilled on every iteration, or a typed array for numeric data |
 | dev-only | an assertion behind a module-level `const DEV = process.env.NODE_ENV !== 'production'`, plus the precondition in the JSDoc |
 | split | a test for the common case first, such as `length <= 1` or an identity check, then the costly path |

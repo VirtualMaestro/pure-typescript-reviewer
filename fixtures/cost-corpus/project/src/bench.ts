@@ -51,5 +51,15 @@ time('integrate', () => {
   return speed;
 });
 time('onMessage', () => onMessage(frame));
-time('buildReport', () => buildReport(rows));
-time('processBatches', () => processBatches(batches));
+// The input order is restored every round, so a function that sorts its input in place is timed
+// on the same unsorted data as one that sorts a copy.
+const rowOrder: readonly Row[] = [...rows];
+const itemOrder: readonly (readonly number[])[] = batches.map((batch) => [...batch.items]);
+time('buildReport', () => {
+  rowOrder.forEach((row, i) => { rows[i] = row; });
+  return buildReport(rows);
+});
+time('processBatches', () => {
+  batches.forEach((batch, b) => { itemOrder[b]?.forEach((item, i) => { batch.items[i] = item; }); });
+  return processBatches(batches);
+});
