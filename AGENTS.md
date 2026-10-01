@@ -39,6 +39,7 @@ domain_map:
 | the fix-mode protocol | `references/fix-workflow.md` |
 | the fix design algorithm | `references/fix-design.md` |
 | the stack cost slots | `references/stack-cost.md` |
+| the verdict algorithm | `references/investigate.md` |
 
 workflow:
 1. pick the file from `domain_map`, and put the rule in the file that already owns the topic rather than in a second one
@@ -109,11 +110,11 @@ forbidden_behaviors:
 - do not add a block `cnlp/profiles/reference.md` does not declare: edit the profile first
 - do not change the frontmatter of `ts-reviewer/SKILL.md`: the runtime parses `name` and `description` for discovery and routing
 - do not edit `cnlp/cnlp-format.md` or `cnlp/cnlp.js`: they are upstream, and a local edit is lost on the next unpack
-- do not name a language, a runtime, or a tool in `references/fix-design.md`: `tools.test.mjs` holds that file stack-free
+- do not name a language, a runtime, or a tool in `references/fix-design.md` or `references/investigate.md`: `tools.test.mjs` holds both stack-free
 
 verification:
 - `npm test` runs the typecheck, the format check, and the pre-pass self-check together
 - `node --test cnlp/skill-format.test.js` runs the format check alone, as 5 tests
-- `node --test tools.test.mjs` runs 16 tool tests, and 2 are skipped without `ARCH_TOOLS_NETWORK=1`, which lets them reach `npx`
+- `node --test tools.test.mjs` runs 17 tool tests, and 2 are skipped without `ARCH_TOOLS_NETWORK=1`, which lets them reach `npx`
 - every issue is an error and none is a warning: these files are read as executable instructions, so there is no draft state
 - the failure message names the file and the line

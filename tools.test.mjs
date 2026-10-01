@@ -447,9 +447,11 @@ test("validate-report reads the audit trail a fix run leaves, and holds its coun
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("the fix design algorithm names no stack", () => {
-  const raw = readFileSync(path.join(repoRoot, "ts-reviewer", "references", "fix-design.md"), "utf8");
-  assert.doesNotMatch(raw, /typescript|javascript|\bnode\b|\bv8\b|\btsc\b|\bnpm\b|\.ts\b|jsdoc|eslint|vitest/i);
+test("the stack-free algorithm files name no stack", () => {
+  for (const file of ["fix-design.md", "investigate.md"]) {
+    const raw = readFileSync(path.join(repoRoot, "ts-reviewer", "references", file), "utf8");
+    assert.doesNotMatch(raw, /typescript|javascript|\bnode\b|\bv8\b|\btsc\b|\bnpm\b|\.ts\b|jsdoc|eslint|vitest/i, file);
+  }
 });
 
 test("validate-report holds the Hot path line and the design of every cost-bearing finding", () => {
@@ -474,6 +476,33 @@ test("validate-report holds the Hot path line and the design of every cost-beari
   const skipped = validate(fix);
   assert.equal(skipped.status, 1);
   assert.match(skipped.stderr, /cost-bearing finding was not attempted/);
+  rmSync(fix, { recursive: true, force: true });
+});
+
+test("validate-report holds the Verdict line and closes every deliberate finding", () => {
+  const high = "**Category:** Type Safety & Security | **File:** `src/a.ts` | **Line:** 4 | **Auto-fixable:** Yes | **New code:** No\n";
+  const { dir } = newRepo();
+  writeReportFixture(dir);
+  editReport(dir, (report) => report.replace(high, `${high}**Verdict:** defect | **Evidence:** test src/a.test.ts:3\n`));
+  const accepted = validate(dir);
+  assert.equal(accepted.status, 0, accepted.stderr);
+
+  editReport(dir, (report) => report.replace("**Evidence:** test src/a.test.ts:3", "**Evidence:** none").replace("**Verdict:** defect", "**Verdict:** deliberate"));
+  const rejected = validate(dir);
+  assert.equal(rejected.status, 1);
+  assert.match(rejected.stderr, /Verdict line has an invalid shape/);
+  editReport(dir, (report) => report.replace("**Verdict:** deliberate |", "**Verdict:** unreachable |"));
+  assert.match(validate(dir).stderr, /Evidence is none exactly when the verdict is unknown/);
+  rmSync(dir, { recursive: true, force: true });
+
+  // In the audit trail a deliberate verdict closes its entry with a [SKIPPED] tag, never with a fix.
+  const fix = newRepo().dir;
+  writeFixReportFixture(fix);
+  const fixed = "**Original severity:** High | **Category:** type-safety | **File:** `src/a.ts` | **Line:** 2\n";
+  editReport(fix, (report) => report.replace(fixed, `${fixed}**Verdict:** deliberate-recorded | **Evidence:** record docs/adr/0001.md\n`));
+  const changed = validate(fix);
+  assert.equal(changed.status, 1);
+  assert.match(changed.stderr, /a deliberate finding was changed/);
   rmSync(fix, { recursive: true, force: true });
 });
 

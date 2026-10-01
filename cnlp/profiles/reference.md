@@ -60,6 +60,8 @@ custom_sections:
 - cost_kinds
 - rung_forms
 - measurement
+- verdicts
+- evidence_forms
 
 enforcement:
 - `node --test cnlp/skill-format.test.js`, over every file in the directory its `REFERENCE_DIR` names

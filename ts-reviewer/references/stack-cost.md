@@ -1,9 +1,9 @@
 purpose:
-- fill the slots `references/fix-design.md` reads, for the stack `target_stack` names
-- load it with the checklist of every analysis pass, and before fix mode designs a fix
+- fill the slots `references/fix-design.md` and `references/investigate.md` read, for the stack `target_stack` names
+- load it with the checklist of every analysis pass, before fix mode designs a fix, and before a verdict is decided
 
 scope:
-- `references/fix-design.md` owns the design algorithm, and this file owns every stack term it needs
+- `references/fix-design.md` owns the design algorithm, `references/investigate.md` owns the verdicts, and this file owns every stack term both need
 - a port to another stack rewrites this file block by block, and keeps every block name
 
 hot_marker:
@@ -41,3 +41,15 @@ measurement:
 - the output goes to `$TMPDIR/ts-reviewer-bench-before.log` and `$TMPDIR/ts-reviewer-bench-after.log`, next to the test logs
 - the number recorded is the output line naming the changed function or file, and the last output line when no line names it
 - a project with neither script has no measurement, and the record reads `unmeasured`
+
+evidence_forms:
+
+| Source | Form in this stack |
+|---|---|
+| site | a `//` or JSDoc comment on the flagged lines, the enclosing function or class, or the leading comment of the file |
+| test | a `*.test.ts` or `*.spec.ts` file, or a file under `__tests__/`, that calls the function: `grep -rln '<name>'` over them |
+| history | `git log -L <first>,<last>:<file> --format='%h %s'`, and `git log -S '<line>' --format='%h %s'` for a line that moved |
+| record | `docs/adr/`, `adr/`, `doc/adr/`, `ARCHITECTURE.md`, `CONTRIBUTING.md`, and the README |
+| callers | the references the TypeScript LSP returns, or `grep -rn '<name>('` |
+| outside callers | a function an entry point of `package.json#exports`, `main`, or `bin` exports, or any export when the package declares none |
+| comment written | a `//` line above the flagged line: `// Deliberate: <the behaviour>. Evidence: <pointer>.` |

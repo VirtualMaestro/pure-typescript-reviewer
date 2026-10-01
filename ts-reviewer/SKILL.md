@@ -28,7 +28,7 @@ inputs:
 - the reference checklists under `references/`
 
 preconditions:
-- `code-smells/report.md` exists before fix mode runs: it is the work plan, and fix stops with an error when it is absent
+- `code-smells/report.md` exists before fix mode or investigate mode runs: it is the work plan, and either stops with an error when it is absent
 
 scope:
 - `.ts`, `.mts`, and `.cts` files are reviewed alike
@@ -52,7 +52,8 @@ forbidden_behaviors:
 - do not report a finding whose snippet is absent at the stated line, give or take 2 lines: re-locate it or drop it
 - do not downgrade a finding the enclosing function or module already guards, validates, narrows, or comments: drop it
 - do not report a finding you cannot defend from the code in front of you
-- do not drop a finding as deliberate unless a comment or a doc at the site says so: the operator decides what is intended
+- do not drop a finding as deliberate unless a comment or a doc at the site says so: investigate mode, or the operator, decides the rest
+- do not edit code in investigate mode: the verdicts are its whole output, and fix mode acts on them
 - do not cite a link outside typescriptlang.org, developer.mozilla.org, and nodejs.org, or a path inside this skill: omit the `reference` field instead
 - do not build a link from memory
 - do not recommend anything outside `target_stack`
@@ -81,7 +82,8 @@ run_modes:
 |---|---|---|
 | `scan` | review, find issues, audit, scan, check | the analysis, then the report |
 | `fix` | fix issues, fix the report, apply fixes, fix code smells | the fixes named in the report, with verification |
-| `auto` | review and fix, auto-fix, scan and fix, clean up | scan, then fix, then a re-scan |
+| `investigate` | investigate the report, why is this code this way | the verdict of each finding in the report, by `references/investigate.md` |
+| `auto` | review and fix, auto-fix, scan and fix, clean up | scan, then investigate, then fix, then a re-scan |
 
 domain_sets:
 - read the explicit `--arch`, `--full`, and `--no-arch` flags in the request first, then the phrases below, then fall back to the default set
@@ -174,18 +176,21 @@ node "$SKILL/tools/validate-report.mjs" --repo . --report code-smells/report.md
 48. sort by severity group, then category, then file path, and place `in_diff: true` before pre-existing in a scoped mode
 49. show the top 10 and summarize the rest in a table when Medium and Low together hold more than 15 issues
 50. recommend that the operator adds `code-smells/` to `.gitignore`: it holds review artifacts
-51. read `references/fix-workflow.md` before fix mode executes: it holds the complete protocol
-52. detect the test runner and run the baseline tests
-53. fix the issues file by file, and run `tsc --noEmit` after each file
-54. run the linter and fix the lint errors it reports
-55. run the full test suite, compare it against the baseline, and fix the regressions
-56. repeat the compiler, linter, and test verification with verification iterations <= 5
-57. rerun the Architecture mechanical pre-pass on the fixed tree when Architecture is active
-58. update `code-smells/report.md`: remove what is fixed, mark what failed
-59. show the scan summary in auto mode, and ask the operator whether to proceed with the fix
-60. re-scan after the fix in auto mode with full scan-fix cycles <= 2, and stop when issues persist after the second
-61. delete `code-smells/report.md` and report success when every issue is fixed
-62. retain the remaining `code-smells/` artifacts, state what they contain, and remove them only after the operator confirms
+51. read `references/investigate.md` and `references/stack-cost.md` in investigate mode, and in auto mode after the scan summary
+52. decide the verdict of each `###` finding as `references/investigate.md` states, and write it as the `Verdict` line of the entry
+53. validate the report with the command of step 45 once every verdict is written
+54. read `references/fix-workflow.md` before fix mode executes: it holds the complete protocol
+55. detect the test runner and run the baseline tests
+56. fix the issues file by file, and run `tsc --noEmit` after each file
+57. run the linter and fix the lint errors it reports
+58. run the full test suite, compare it against the baseline, and fix the regressions
+59. repeat the compiler, linter, and test verification with verification iterations <= 5
+60. rerun the Architecture mechanical pre-pass on the fixed tree when Architecture is active
+61. update `code-smells/report.md`: remove what is fixed, mark what failed
+62. show the scan summary in auto mode, and ask the operator whether to proceed with the fix
+63. re-scan after the fix in auto mode with full scan-fix cycles <= 2, and stop when issues persist after the second
+64. delete `code-smells/report.md` and report success when every issue is fixed
+65. retain the remaining `code-smells/` artifacts, state what they contain, and remove them only after the operator confirms
 
 scope_commands:
 ```bash
@@ -268,6 +273,7 @@ Target stack: TypeScript 5.9.x, target and lib ES2024, Node 24, ESM under nodene
 Read the reference checklist: [REFERENCE_PATH]
 Read the cost slots: [STACK_COST_PATH], then fill `hot` and `fix_cost` for every finding.
 Write `fix` as a change after which a rescan would not raise the finding again, whatever it costs, and fill `fix_cost` for that change: on a hot path, fix mode designs a cheaper one.
+Report a pattern even when a test, a commit, or a decision record suggests it is deliberate: only a comment at the site drops it.
 Review these files: [FILE_LIST]
 Context files (read-only, do NOT report issues): [CONTEXT_FILE_LIST]
 Scope mode: [full|uncommitted|branch|commits:N]
@@ -319,6 +325,7 @@ report_format:
 - a `Recurring Patterns` row is a pattern rather than an issue, and no row of that table is counted
 - a summary table is read by its `Category` and `Location` columns, and a pattern table by its `Pattern` and `Occurrences` columns
 - the `Hot path` line is present on a finding whose `hot` is not `no` and whose `fix_cost` is not `none`, and absent on every other finding
+- the `Verdict` line is present on every `###` finding once investigate mode has run, and absent on every finding before it
 ````markdown
 # TypeScript Code Review Report
 
@@ -345,6 +352,7 @@ report_format:
 
 **Category:** cat | **File:** `path` | **Line:** N | **Auto-fixable:** Yes/No | **New code:** Yes/No
 **Hot path:** yes/unknown | **Fix cost:** alloc/pass/check/async
+**Verdict:** defect/deliberate-recorded/deliberate-unrecorded/unreachable/unknown | **Evidence:** <source> <pointer>/none
 
 ```typescript
 // snippet: 3-7 lines copied from the file, within its own length of the stated line

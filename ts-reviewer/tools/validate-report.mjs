@@ -55,6 +55,18 @@ const CONDITIONAL_ARCH_FIELDS = {
   enforce: ["Rule"],
 };
 
+// The Verdict line investigate mode writes: optional, and when present its evidence names a source,
+// except on `unknown`, which no source decided.
+const VERDICT = /^\*\*Verdict:\*\* (defect|deliberate-recorded|deliberate-unrecorded|unreachable|unknown) \| \*\*Evidence:\*\* (.+)$/;
+const verdictOf = (block, at, fail) => {
+  const verdictAt = block.findIndex((line) => line.startsWith("**Verdict:**"));
+  if (verdictAt < 0) return null;
+  const verdict = block[verdictAt].match(VERDICT);
+  if (!verdict) fail(at + verdictAt + 2, "Verdict line has an invalid shape");
+  else if ((verdict[1] === "unknown") !== (verdict[2] === "none")) fail(at + verdictAt + 2, "Evidence is none exactly when the verdict is unknown");
+  return verdict?.[1] ?? null;
+};
+
 const value = (name, fallback) => {
   const at = process.argv.indexOf(`--${name}`);
   return at >= 0 && process.argv[at + 1] ? process.argv[at + 1] : fallback;
@@ -187,6 +199,7 @@ for (const sectionName of fixMode ? [] : ISSUE_SECTIONS) {
     if (costAt >= 0 && !/^\*\*Hot path:\*\* (yes|unknown) \| \*\*Fix cost:\*\* (alloc|pass|check|async)$/.test(block[costAt])) {
       fail(index + costAt + 2, "Hot path line has an invalid shape");
     }
+    verdictOf(block, index, fail);
 
     const fence = block.findIndex((line) => /^```[^`]*$/.test(line));
     const fenceEnd = fence >= 0 ? block.findIndex((line, at) => at > fence && line === "```") : -1;
@@ -267,6 +280,10 @@ for (const sectionName of fixMode ? FIX_ENTRY_SECTIONS : []) {
     if (bucket === "Remaining" && block.some((line) => line.startsWith("**Hot path:**"))) {
       fail(index + 1, "cost-bearing finding was not attempted");
     }
+    // A deliberate verdict closes the finding with at most a comment, never with a fix.
+    const verdict = verdictOf(block, index, fail);
+    if (verdict?.startsWith("deliberate") && bucket === "Fixed") fail(index + 1, "a deliberate finding was changed");
+    if (verdict?.startsWith("deliberate") && bucket === "Remaining") fail(index + 1, "a deliberate finding was not closed");
     const fileAt = block.findIndex((line) => line.includes("**File:** `"));
     const file = fileAt >= 0 ? block[fileAt].match(/\*\*File:\*\* `([^`]+)`/) : null;
     if (!file) fail(index + 1, "entry has no File field");

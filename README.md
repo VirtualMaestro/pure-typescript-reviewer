@@ -140,7 +140,25 @@ Review and fix my TypeScript code
 Auto-fix code smells
 ```
 
-Runs scan, shows you the summary, asks if you want to proceed with fixes, then runs the full fix cycle. If everything is clean afterward, the report is deleted.
+Runs scan, investigates every finding, shows you the summary, asks if you want to proceed with fixes, then runs the full fix cycle. If everything is clean afterward, the report is deleted.
+
+### Investigate — why is this code this way?
+
+```
+Investigate the report
+```
+
+Before a fix changes flagged code, investigate asks whether the pattern is there on purpose. For each finding in `code-smells/report.md` it reads 5 sources, cheapest first, and stops at the first that names the flagged behaviour: a comment at the site, a test that calls the function, the commit that introduced the exact lines (`git log -L`), a decision record (`docs/adr/`, `ARCHITECTURE.md`, ...), and the callers. It writes 1 `**Verdict:**` line per finding with a pointer to that source, and changes no code.
+
+| Verdict | Decided by | What fix mode does |
+|---|---|---|
+| `defect` | a test, a record, or a caller shows the failure | fixes it as reported |
+| `deliberate-recorded` | a decision record names the behaviour as wanted | no change, `[SKIPPED: deliberate, <pointer>]` |
+| `deliberate-unrecorded` | a test or a commit message names it as wanted, and nothing at the site does | adds `// Deliberate: <behaviour>. Evidence: <pointer>.` above the line, no other change |
+| `unreachable` | every caller is known, and none reaches the failure | fixes it when the fix is free; on a hot path a costly fix is skipped without asking |
+| `unknown` | no source decides | fixes it as today; the verdict tells you the fix rests on no evidence |
+
+A commit message counts only when it names the behaviour ("wip" does not), and a test is read before the history, so a test that asserts the opposite wins. The comment a `deliberate-unrecorded` verdict leaves is what makes the next scan drop the finding.
 
 ### Hot paths — `@hotpath`
 
@@ -231,7 +249,8 @@ ts-reviewer/
     ├── architecture.md               # Checklist: shallow modules, coupling, dependency direction, seams
     ├── fix-workflow.md               # Complete fix protocol: tests, verification, rollback
     ├── fix-design.md                 # Stack-free ladder for designing a fix on a hot path
-    └── stack-cost.md                 # The @hotpath marker, cost kinds, rung forms, bench command
+    ├── stack-cost.md                 # The @hotpath marker, cost kinds, rung forms, bench command, evidence sources
+    └── investigate.md                # Stack-free verdicts: why flagged code is the way it is
 ```
 
 **SKILL.md** is the orchestrator — it routes between scan/fix/auto modes, detects domain flags (`--arch`, `--full`), defines scope detection, severity scale, and report format.

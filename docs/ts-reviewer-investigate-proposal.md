@@ -4,7 +4,7 @@
 whole input for slice 2; slice 1 is `docs/ts-reviewer-fix-cost-proposal.md`, complete as `3.2.0`.
 **Status:** step 1 of §9 is done: the operator answered §10 on 2026-10-01, every answer the
 recommendation. Step 2, the fixture, is done. Step 3 ran 3 red runs, and the gate passes under the
-operator's reading (§9). Step 4, the build, is next. Nothing of slice 2 is under `ts-reviewer/` yet.
+operator's reading (§9). Step 4 is built as `3.3.0`; step 5, the green runs, is next. Nothing of slice 2 is under `ts-reviewer/` yet.
 **Decided before this proposal** (slice 1, §7): slice 2 is 1 run mode and 1 stack-free file
 `references/investigate.md`; the evidence order is cheapest first and stops at the first
 decisive source; `unknown` is a valid verdict and is not `defect`; `deliberate-unrecorded` ends
@@ -101,7 +101,7 @@ pointer slice 1 wrote; it is cheaper when slice 3 adds its own slots, and §4 re
 The new file and the new block below were run through `bodyIssues` and `lexiconIssues` of
 `cnlp/cnlp.js`, with the 2 new block names added to an in-memory copy of the reference profile:
 0 issues. The stack-free regex of `tools.test.mjs` matches nothing in the new file. Every wiring
-line passed `lexiconIssues`. **`npm test` on the real files has not been run**; that is step 4.
+line passed `lexiconIssues`. `npm test` on the real files passes as of step 4.
 
 ### `cnlp/profiles/reference.md` — first
 
@@ -218,6 +218,15 @@ point, so every export counts as reachable from outside, and no slice 1 case tur
 ```
 
 The `auto` row depends on §10, question 2.
+
+### `SKILL.md` `subagent_template:` — 1 line after the `fix` line slice 1 added
+
+```
+Report a pattern even when a test, a commit, or a decision record suggests it is deliberate: only a comment at the site drops it.
+```
+
+Added after the red runs (§9): in 2 of 3, no pass flagged case 1, whose intent sits in an ADR,
+so the finding never reached a verdict and left no trace in the report.
 
 ### `SKILL.md` `preconditions:` — the line widens
 
@@ -384,7 +393,7 @@ report`. A `3.2.0` red run makes the first and the third.
 | 1 | this proposal | `docs/ts-reviewer-investigate-proposal.md` | the operator has answered §10 | done, 2026-10-01 |
 | 2 | build the fixture | `fixtures/intent-corpus/` as §8 lays it out | `npx tsc --noEmit` clean, `npm test` in the project fails only the case 4 test, `git log -L` returns each planted message; `npm test` of this repository unaffected | done, 2026-10-01: `tsc` clean, 4 tests with 1 failing as planted, `git log -L` returns each planted message |
 | 3 | red run: `3.2.0` against the fixture, 1 run | the first table of `fixtures/intent-corpus/RESULTS.md` | the scan flags cases 1–6 and drops 7, and >= 2 of cases 1–3 show a forbidden outcome | 3 runs on 2026-10-01: 1 of cases 1–3 forbidden in each, case 2; the gate fails as written; **decided 2026-10-01:** failure (b), a finding left open with no record, counts, and the gate passes in all 3 (`RESULTS.md`) |
-| 4 | build slice 2 | the edits of §5, version `3.3.0` | `npm test` passes, with the widened and the new test | open |
+| 4 | build slice 2 | the edits of §5, version `3.3.0` | `npm test` passes, with the widened and the new test | done, 2026-10-01: 22 tests, 20 pass, 2 skipped offline |
 | 5 | green runs: 3 cold runs of `3.3.0`, plus 1 cost corpus run | 4 more rows | the pass bar below, in each run | open |
 
 **The gate at step 3.** Fewer than 2 of cases 1–3 forbidden means the model already reads tests
