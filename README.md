@@ -6,13 +6,22 @@ Built for one fixed stack — **TypeScript 5.9.x, ES2024, Node 24** — without 
 
 ## What It Does
 
-Three modes, one skill:
+Four modes, one skill:
 
 | Mode | What happens |
 |---|---|
 | **scan** | Analyzes the codebase and writes a prioritized report to `code-smells/report.md` |
+| **investigate** | Reads the report and decides, from tests, git history, decision records, and callers, whether each finding is a real defect or deliberate. Changes no code |
 | **fix** | Reads the report and applies fixes file-by-file with tsc/lint/test verification |
-| **auto** | Runs scan, asks you to confirm, fixes everything, deletes the report if clean |
+| **auto** | Runs scan, investigates, asks you to confirm, fixes everything, deletes the report if clean |
+
+## What's New
+
+**3.3.0 — investigate mode.** Before a fix changes flagged code, the skill now checks whether the pattern is there on purpose: a test that pins it, a commit message that explains it, an ADR that decides it. Deliberate code is left alone and gets a `// Deliberate:` comment citing the evidence, so the next scan does not flag it again. See [Investigate](#investigate--why-is-this-code-this-way).
+
+**3.2.0 — hot paths.** Mark performance-critical code with `/** @hotpath */`. A fix that would add an allocation, a validation, or an extra pass there is redesigned to pay that cost outside the hot path, or handed to you as a choice when it cannot be. See [Hot paths](#hot-paths--hotpath).
+
+Both are optional: a project with no `@hotpath` markers, no tests, and no history gets today's behaviour plus 1 verdict line per finding.
 
 The review covers nine domains by default, each with its own detailed checklist. Add `--arch` or `--full` to include architecture analysis:
 
@@ -66,6 +75,21 @@ In non-interactive terminals, the installer selects all supported targets.
 You can still copy the `ts-reviewer/` folder directly into the skill directory for your AI agent.
 
 ## Usage
+
+The usual workflow is 3 requests in 1 session, or 1 request in auto mode:
+
+```
+Review my TypeScript code        → code-smells/report.md
+Investigate the report           → 1 Verdict line per finding, no code change
+Fix the report                   → fixes, comments on deliberate code, audit trail
+```
+```
+Review and fix my TypeScript code    → all of the above, with 1 confirmation before the fix
+```
+
+Read the report between the steps: it is the work plan, and you can delete findings or edit a verdict before fix runs. Investigate is optional — `Fix the report` straight after a scan works as in earlier versions.
+
+You do not start any sub-agents yourself. The scan launches its own analysis passes as sub-agents (`--agents N`, default 3); investigate and fix run in the main agent.
 
 ### Scan — find issues
 
@@ -123,7 +147,7 @@ Apply fixes from code-smells/report.md
 The fix workflow:
 1. Parses the report as a work plan
 2. Runs existing tests to capture a baseline (knows what was already failing)
-3. Fixes issues file-by-file, writes regression tests, runs `tsc` after each file
+3. Fixes issues file-by-file, writes regression tests, runs `tsc` after each file. A finding investigate called deliberate gets at most a comment; a fix on a hot path is redesigned first (see [Hot paths](#hot-paths--hotpath))
 4. Runs linter, fixes lint errors
 5. Runs full test suite, compares with baseline, fixes any regressions it caused
 6. Repeats verification up to 5 iterations
@@ -147,6 +171,11 @@ Runs scan, investigates every finding, shows you the summary, asks if you want t
 ```
 Investigate the report
 ```
+```
+Investigate the ts-reviewer report: which findings are deliberate?
+```
+
+Run it after a scan, before fix. It needs `code-smells/report.md`, and it works best in a git repository with real commit messages and a test suite — those are its evidence.
 
 Before a fix changes flagged code, investigate asks whether the pattern is there on purpose. For each finding in `code-smells/report.md` it reads 5 sources, cheapest first, and stops at the first that names the flagged behaviour: a comment at the site, a test that calls the function, the commit that introduced the exact lines (`git log -L`), a decision record (`docs/adr/`, `ARCHITECTURE.md`, ...), and the callers. It writes 1 `**Verdict:**` line per finding with a pointer to that source, and changes no code.
 
@@ -251,9 +280,14 @@ ts-reviewer/
     ├── fix-design.md                 # Stack-free ladder for designing a fix on a hot path
     ├── stack-cost.md                 # The @hotpath marker, cost kinds, rung forms, bench command, evidence sources
     └── investigate.md                # Stack-free verdicts: why flagged code is the way it is
+
+docs/                                 # design proposals behind each feature, with their decisions
+fixtures/                             # throwaway projects + answer keys the features were tested against (unpublished)
+├── cost-corpus/                      #   → hot paths, 3.2.0
+└── intent-corpus/                    #   → investigate, 3.3.0
 ```
 
-**SKILL.md** is the orchestrator — it routes between scan/fix/auto modes, detects domain flags (`--arch`, `--full`), defines scope detection, severity scale, and report format.
+**SKILL.md** is the orchestrator — it routes between scan/investigate/fix/auto modes, detects domain flags (`--arch`, `--full`), defines scope detection, severity scale, and report format.
 
 **Reference files** contain the detailed checklists and protocols. Each analysis agent reads only the reference file relevant to its domain, keeping context focused. Architecture analysis is opt-in and loaded only when the domain is active.
 
@@ -289,17 +323,26 @@ The test catches a check line that lost its severity, a block the profile does n
 
 Validate a report directly with `node ts-reviewer/tools/validate-report.mjs --repo . --report code-smells/report.md`. It checks headings, counts, finding anchors, architecture fields, and linked artifacts without adding a dependency, and it reads both the scan report and the audit trail a fix run leaves in its place. An **error** is a defect of the report that rewriting it fixes; a **warning** names an outcome of the mechanical pre-pass — a graph with no diagram, say — that the report cannot fix, and warnings do not fail the run.
 
+### Investigate mode
+
+1. Reads `references/investigate.md` and the evidence locations in `references/stack-cost.md`
+2. For each `###` finding, reads the sources in order — site comment, tests, `git log -L` on the exact lines, decision records, callers — and stops at the first that names the flagged behaviour
+3. Writes `**Verdict:** <verdict> | **Evidence:** <source> <pointer>` into the entry, and validates the report
+4. Changes no source file: `git diff` is the same before and after
+
 ### Fix mode
 
 1. Validates `code-smells/report.md` and stops before changing code when the report is invalid
 2. Parses the report as the work plan
-3. Captures test baseline (runs tests before changes)
-4. Applies fixes bottom-to-top within each file (so line numbers don't shift)
-5. Writes regression tests for each testable fix
-6. Runs `tsc --noEmit` after each file
-7. Runs the full verification loop: tsc + linter + test suite (max 5 iterations)
-8. Compares test results with baseline — only fixes regressions it caused
-9. Updates or deletes the report, keeps the remaining `code-smells/` artifacts, and asks before removing them
+3. Captures test baseline (runs tests before changes), and the `bench` script when a finding is on a hot path
+4. Closes deliberate findings first: no change for `deliberate-recorded`, 1 `// Deliberate:` comment for `deliberate-unrecorded`
+5. Applies fixes bottom-to-top within each file (so line numbers don't shift); a fix on a hot path goes through the 7-rung design first
+6. Writes regression tests for each testable fix
+7. Runs `tsc --noEmit` after each file
+8. Runs the full verification loop: tsc + linter + test suite (max 5 iterations)
+9. Compares test results with baseline — only fixes regressions it caused
+10. Shows you the rung 7 choices, runs the `bench` script again, and writes both numbers on every designed fix
+11. Updates or deletes the report, keeps the remaining `code-smells/` artifacts, and asks before removing them
 
 ## Tips
 
@@ -311,7 +354,11 @@ Validate a report directly with `node ts-reviewer/tools/validate-report.mjs --re
 
 - **Commit before running fix** — so you can `git diff` to review changes and `git checkout -- .` to revert if needed.
 
-- **Edit the report before fix** — since fix uses `code-smells/report.md` as its work plan, you can delete issues you don't want fixed, change severities, or add notes before running fix.
+- **Edit the report before fix** — since fix uses `code-smells/report.md` as its work plan, you can delete issues you don't want fixed, change severities, change a `Verdict` line, or add notes before running fix.
+
+- **Leave evidence of intent** — a test that asserts the behaviour, a commit message that names it, or an ADR in `docs/adr/` is what investigate reads. A code comment at the site is the strongest: the scan drops the finding outright.
+
+- **Mark hot paths once** — `/** @hotpath */` on a frame loop, parser, or message handler keeps every future fix there allocation-aware. Unmarked loops are still treated as possibly hot.
 
 - **Scoped review for PRs** — `"review my branch against main"` is the most practical mode for day-to-day use. Full codebase audits are better suited for periodic health checks.
 
@@ -320,6 +367,7 @@ Validate a report directly with `node ts-reviewer/tools/validate-report.mjs --re
 - TypeScript 5.9.x project targeting ES2024 on Node 24
 - Git repository (for scoped modes and safe revert during fix)
 - Node 24 with `npx` available (for tsc, linter)
+- Optional: a `bench` or `benchmark` script in `package.json`, for before/after numbers on hot-path fixes
 - Claude Code (recommended) or any Claude interface with skill support
 
 ## License
