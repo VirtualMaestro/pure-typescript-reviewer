@@ -30,4 +30,6 @@ What `3.2.0` does with intent, seen in all 3 runs:
   off-hot-path form.
 - in 2 runs case 1 left no trace in the report: the drop is right, and nothing records why.
 
-Whether failure (b) counts toward this gate is the operator's call, as it was for slice 1.
+**Decided 2026-10-01:** failure (b) counts, as for slice 1. Read that way the gate passes in
+every run: red run 1 has cases 2 and 3 forbidden, red run 2 cases 1, 2, and 3, red run 3 cases 2
+and 3. Step 4 is open.
