@@ -108,7 +108,7 @@ forbidden_behaviors:
 - do not restate a fact another file already states: put the owner in `scope:` instead
 - do not invent a severity outside the 4 in `severity_scale`
 - do not add a block `cnlp/profiles/reference.md` does not declare: edit the profile first
-- do not change the frontmatter of `ts-reviewer/SKILL.md`: the runtime parses `name` and `description` for discovery and routing
+- do not change the frontmatter of `ts-reviewer/SKILL.md` beyond the modes and trigger phrases of `description`: the runtime parses `name` and `description` for discovery and routing
 - do not edit `cnlp/cnlp-format.md` or `cnlp/cnlp.js`: they are upstream, and a local edit is lost on the next unpack
 - do not name a language, a runtime, or a tool in `references/fix-design.md` or `references/investigate.md`: `tools.test.mjs` holds both stack-free
 

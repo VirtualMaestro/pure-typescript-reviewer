@@ -1,9 +1,10 @@
 ---
 name: ts-reviewer
 description: >
-  TypeScript code review and auto-fix. Modes: scan, fix, auto. Scopes: full codebase,
+  TypeScript code review and auto-fix. Modes: scan, investigate, fix, auto. Scopes: full codebase,
   uncommitted, branch diff, last N commits. Trigger on: review, audit, check, lint,
-  find issues, find bugs, fix issues, fix code smells, auto-fix, review and fix,
+  find issues, find bugs, investigate the report, why is this code this way, is this deliberate,
+  fix issues, fix the report, fix code smells, auto-fix, review and fix,
   clean up code, tech debt, code health, security audit, modernize, review my changes,
   review my PR, review last commit. Architecture review: --arch, --full, review architecture,
   find refactoring opportunities, full audit. Pure TypeScript 5.9.x, ES2024, Node 24 only.
