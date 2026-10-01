@@ -66,3 +66,24 @@ Left open, no run went wrong on them: SKILL step 40 against the `Verdict` line o
 Pattern member (all runs kept full entries); `unreachable` off the hot path (all runs applied the
 zero-cost form); the auto re-scan meeting the resume question of step 6 with no operator; the
 bench logs of a second auto cycle overwriting the first.
+
+## Green runs of `d651275` (`3.3.0` with the 2 changed lines): the bar holds 3 of 3
+
+| Date | Skill | Runtime | Model | Verdicts | 1 | 2 | 3 | 4 | 5 | 6 | 7 | Diff after investigate | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-01 | 3.3.0 (`d651275`), green run 4 | as red run 1 | Opus 5.5 | 6 | ok | ok | ok | ok | ok | ok | ok | empty | **bar passed** |
+| 2026-10-01 | 3.3.0 (`d651275`), green run 5 | as red run 1 | Opus 5.5 | 6 | ok | ok | ok | ok | ok | ok | ok | empty | **bar passed** |
+| 2026-10-01 | 3.3.0 (`d651275`), green run 6 | as red run 1 | Opus 5.5 | 6 | ok | ok | ok | ok, pointer `config.test.ts:10` | ok | ok | ok | empty | **bar passed**: step 5 of the proposal is done |
+
+Cost corpus, 1 auto run of `d651275` (`cost-corpus-GpNA4T`, snapshots in its `-tmp`): fields 7 of 7
+from the first scan's `passes/`; slice 1's outcomes hold (r1, r4, r3, both rung 7 skips, 5 and 6
+applied as reported, 2 numbers per designed fix from `cycle1/`); verdicts `defect` by the callers
+on cases 1, 3, 7 and `unknown` on 2 and 4, none deliberate or `unreachable`. Bar passed.
+
+Run directories: `intent-corpus-F9JlJc` (4), `intent-corpus-Ep1lhm` (5), `intent-corpus-pFXBxk` (6).
+
+Left open, no run went wrong on them; each is a candidate for the next wording pass, which reruns
+all 3: SKILL step 40 against a `###` entry per site (every run kept full entries and added a
+pattern row); `unknown` on an `Auto-fixable: No` finding (every run left the linter untouched);
+the auto re-scan meeting step 6's resume question with no operator, and its bench logs and audit
+trail overwriting cycle 1's; a merged rung 7 entry whose categories carry different cost kinds.
