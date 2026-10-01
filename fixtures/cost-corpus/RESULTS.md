@@ -11,6 +11,9 @@ the key, out of 7, or `n/a` for a `3.1.0` run.
 | 2026-10-01 | 3.2.0 (`2f36971`), green run 1 | Claude Code, run as a sub-agent; pass sub-agents | Opus 5.5 | 5 | ok r4 | ok, outside the bar: the scan reported the typed parameter, `fix_cost: none`, so no design ran | forbidden: the scan reported "document the mutation", `fix_cost: none`, and fix applied a JSDoc line; `code-quality.md:42` still fires | ok r7: `[SKIPPED: rung 7 check]`, both variants, no answer | ok | ok | ok r3: a function-local scratch array above the loop | 2 of 2, lines of the logs | bar missed on case 3 and on the fields of cases 2 and 3 |
 | 2026-10-01 | 3.2.0 (`2f36971`), green run 2 | as run 1 | Opus 5.5 | 6 | ok r4 | ok, as run 1 | ok r7: `[SKIPPED: rung 7 alloc]`, both variants, no answer | ok r7, as run 1 | ok | ok | ok r3, as run 1 | 2 of 2 | bar missed on the field of case 2 only |
 | 2026-10-01 | 3.2.0 (`2f36971`), green run 3 | as run 1 | Opus 5.5 | 5 | ok r4 | ok, as run 1 | forbidden, as run 1: JSDoc only | ok r7, as run 1 | ok | ok | ok r3, as run 1 | 2 of 2 | bar missed, as run 1 |
+| 2026-10-01 | 3.2.0 (`0a8c4e0`), green run 4 | as run 1 | Opus 5.5 | 7 | ok r4 | ok r1, designed at fix time | ok r7: `[SKIPPED: rung 7 alloc]`, both variants, no answer | ok r7: `[SKIPPED: rung 7 check]` | ok | ok | ok r3 | 3 of 3, lines of the logs | **bar passed** |
+| 2026-10-01 | 3.2.0 (`0a8c4e0`), green run 5 | as run 1 | Opus 5.5 | 7 | ok r4 | ok r1 | not reported: the pass flagged it `yes/alloc`, and the parent dropped it at report time as "advancing the body is the function's purpose" | ok r7, plus a second rung 7 entry for the Error Handling finding on line 7 | ok | ok | ok r3 | 3 of 3 | bar missed on case 3 |
+| 2026-10-01 | 3.2.0 (`0a8c4e0`), green run 6 | as run 1 | Opus 5.5 | 7 | ok r4 | ok r1 | forbidden: fix mode replaced the reported `alloc` fix with a JSDoc line, `[FIXED]` with no `Fix design` line, reasoning that a commented pattern is dropped on a rescan | ok r7 | ok | ok | ok r3 | 3 of 3 | bar missed on case 3 |
 
 Run directories, kept for inspection: `C:\Users\virtu\AppData\Local\Temp\cost-corpus-H7XKfs` (run 1),
 `C:\Users\virtu\AppData\Local\Temp\cost-corpus-Nqpffu` (run 2). Green runs of `2f36971`:
@@ -39,6 +42,27 @@ mutation"), it is the red runs' failure (b) moved from fix time to scan time: th
 - `src/bench.ts`: `buildReport` and `processBatches` get their input back in its first order
   every round. The old code sorted the bench's own arrays in place, so every round after the
   first sorted sorted data, and all 3 runs measured a correct fix as 4x slower.
+
+## What the green runs of `0a8c4e0` changed
+
+Fields hold on all 7 cases in all 3 runs, and cases 1, 2, 4..7 hold their accepted outcome.
+Case 3 is the only miss, and both misses take the same exit: the in-place update is declared
+intended, once by the parent dropping the finding, once by fix mode writing it into the JSDoc
+and calling the finding closed. That is the operator's call (§10.4 of the proposal keeps case
+3 at rung 7), so both exits now route to the operator.
+
+- `SKILL.md` `forbidden_behaviors`: a finding is not dropped as deliberate unless a comment or a
+  doc at the site says so. It is the counterpart of the existing rule that drops a finding the
+  function already comments.
+- `fix-design.md` `forbidden_behaviors`: documenting the flagged pattern as intended does not
+  close a finding; keeping the pattern is the second variant of rung 7.
+- `modernization.md` `non_findings`: `.sort()` on a module-owned scratch array the function
+  refills first. All 3 runs noted that `modernization.md:37` would flag the rung 4 form on a
+  rescan, which by `fix-design.md`'s own test means rung 4 never closes a finding.
+- `fix-workflow.md` `report_format`: `Cost kind` is the kind the reported fix adds. Runs 4 and
+  6 asked; run 6 wrote the design's kind.
+
+Run directories: `cost-corpus-rBxeLQ` (4), `cost-corpus-jWqvAZ` (5), `cost-corpus-Hj4EOy` (6).
 
 ## Fixture changes
 

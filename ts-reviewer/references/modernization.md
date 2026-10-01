@@ -65,3 +65,4 @@ non_findings:
 - an annotated constant whose literal types are never used downstream
 - declaration merging inside a `.d.ts` file: a `namespace` is the only syntax that expresses it
 - `/// <reference types="..." />` in a global `.d.ts` file: no `import` replaces a global type reference
+- `.sort()` on a module-owned scratch array the same function refills first: it is the reuse form `references/stack-cost.md` names, and no caller holds it

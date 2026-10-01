@@ -160,7 +160,7 @@ report_format:
 // AFTER (applied fix)
 ```
 
-**Fix design:** rung <N> <name> | **Cost kind:** <kind> | **Measured:** <before> -> <after>, or unmeasured
+**Fix design:** rung <N> <name> | **Cost kind:** <the kind the reported fix adds> | **Measured:** <before> -> <after>, or unmeasured
 **Rejected rungs:** <N> <name>: <reason>; <N> <name>: <reason>
 **Regression test:** `path/to/file.reviewer-fixes.test.ts` (or "not applicable")
 

@@ -52,6 +52,7 @@ forbidden_behaviors:
 - do not report a finding whose snippet is absent at the stated line, give or take 2 lines: re-locate it or drop it
 - do not downgrade a finding the enclosing function or module already guards, validates, narrows, or comments: drop it
 - do not report a finding you cannot defend from the code in front of you
+- do not drop a finding as deliberate unless a comment or a doc at the site says so: the operator decides what is intended
 - do not cite a link outside typescriptlang.org, developer.mozilla.org, and nodejs.org, or a path inside this skill: omit the `reference` field instead
 - do not build a link from memory
 - do not recommend anything outside `target_stack`

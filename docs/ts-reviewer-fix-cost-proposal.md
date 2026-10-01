@@ -121,7 +121,7 @@ a dependency, and a third stack is the moment to extract.
 | hotness inherited from callers: a function called from a `@hotpath` function | it needs a call graph. Add it when a real run shows cost-bearing findings missed for that reason |
 | `*.bench.ts` and `vitest bench` detection | 1 signal, the `bench` script, is enough to prove the measurement path, and the fixture carries one (§8). Add the second when a project uses it |
 | a per-fix measurement | the `bench` script measures the project, so fix mode runs it 1 time before the first change and 1 time after the last, and every designed fix carries the same pair. A per-function number needs a bench harness the skill does not own |
-| edits to the domain checklists beyond 1 `scope:` line in `code-quality.md` | the trigger already reroutes the fix. `AGENTS.md` forbids restating 1 fact in 2 files, and the `scope:` line is the form it allows for a term another file owns |
+| edits to the domain checklists beyond 1 `scope:` line in `code-quality.md`, and 1 `non_findings:` line in `modernization.md` that the green runs showed necessary: without it `modernization.md:37` flags the rung 4 form on a rescan | the trigger already reroutes the fix. `AGENTS.md` forbids restating 1 fact in 2 files, and the `scope:` line is the form it allows for a term another file owns |
 | classification by the parent agent instead of the sub-agent | the sub-agent has the code and the fix in context. Move it when a real run shows the fields filled wrong |
 | a shared npm package for the algorithm file | see §3 |
 
@@ -200,7 +200,13 @@ forbidden_behaviors:
 - do not write "no regression" or "no impact" without a measured number beside it
 - do not design a fix for a finding that is not cost-bearing: the reported fix applies as written
 - do not leave a cost-bearing finding without a design: a rung, or the operator's choice, closes every one
+- do not close a finding by documenting the flagged pattern as intended: keeping the pattern is the second variant of rung 7, and the operator picks it
 ```
+
+The last line was added after green runs 5 and 6 (§9), where case 3 was declared intended
+without the operator, once by the scan and once by fix mode. Its scan-side counterpart is a
+`SKILL.md` `forbidden_behaviors:` line: "do not drop a finding as deliberate unless a comment
+or a doc at the site says so: the operator decides what is intended".
 
 Three `read_first` lines carry decisions the first draft left implicit:
 
@@ -390,7 +396,7 @@ before it. The current steps 31..35 become 38..42.
 ```
 
 ````markdown
-**Fix design:** rung <N> <name> | **Cost kind:** <kind> | **Measured:** <before> -> <after>, or unmeasured
+**Fix design:** rung <N> <name> | **Cost kind:** <the kind the reported fix adds> | **Measured:** <before> -> <after>, or unmeasured
 **Rejected rungs:** <N> <name>: <reason>; <N> <name>: <reason>
 ````
 
@@ -564,7 +570,7 @@ Protocol, per run:
 | 2 | build the fixture | `fixtures/cost-corpus/` as §8 lays it out | `npx tsc --noEmit` is clean inside `project/`, `npm run bench` prints 6 lines; the operator has approved `KEY.md`; `npm test` of this repository is unaffected | open |
 | 3 | red run: the current `3.1.0` skill against the fixture, 1 run | the first table in `RESULTS.md` | the scan flags all 7 cases, and >= 3 of the 5 cost-bearing cases show a forbidden outcome: the costly fix applied, or the finding declined with no design | done, 2 runs on 2026-09-30; run 2 passes the gate at 3 of 5: see the outcome below |
 | 4 | build slice 1 | the edits of §5, version `3.2.0` | `npm test` passes, including the 2 new tests | done, 2026-10-01: 21 tests, 19 pass, 2 skipped offline |
-| 5 | green runs: the `3.2.0` build against the fixture, 3 cold runs | 3 more tables in `RESULTS.md` | the pass bar below, in each of the 3 runs | in progress: runs 1..3 of `2f36971` missed the bar on case 3 (2 of 3) and the case 2 field; the wording changed (`RESULTS.md`), 3 reruns next |
+| 5 | green runs: the `3.2.0` build against the fixture, 3 cold runs | 3 more tables in `RESULTS.md` | the pass bar below, in each of the 3 runs | in progress: runs 1..3 of `2f36971` missed the bar on case 3 and the case 2 field; runs 4..6 of `0a8c4e0` passed 1 of 3, case 3 again; the wording changed twice (`RESULTS.md`), 3 reruns next |
 
 **The gate at step 3 is real.** The red run scores the fix outcome only, since `3.1.0` emits no
 cost fields. A case the scan does not flag is a defect of the fixture, not of the skill: fix

@@ -47,3 +47,4 @@ forbidden_behaviors:
 - do not write "no regression" or "no impact" without a measured number beside it
 - do not design a fix for a finding that is not cost-bearing: the reported fix applies as written
 - do not leave a cost-bearing finding without a design: a rung, or the operator's choice, closes every one
+- do not close a finding by documenting the flagged pattern as intended: keeping the pattern is the second variant of rung 7, and the operator picks it
