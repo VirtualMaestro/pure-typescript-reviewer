@@ -71,7 +71,7 @@ workflow:
 ```bash
 # SKILL is the directory this file was loaded from; the main workflow approved missing tools before this pass.
 SKILL=<the directory this file was loaded from>
-KNIP=$([ -x node_modules/.bin/knip ] && echo node_modules/.bin/knip || echo "npx -y knip@6.31.0")
+KNIP=$([ -x node_modules/.bin/knip ] && echo node_modules/.bin/knip || echo "npx -y knip@6")
 
 mkdir -p code-smells
 

@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { classifyRun } from "./classify-run.mjs";
 
-const TOOL = "dependency-cruiser@18.1.0";
+const TOOL = "dependency-cruiser@18";
 const EXCLUDE = "^(node_modules|node:)";
 const PROJECT_DECLARATIONS = [".dependency-cruiser.cjs", ".dependency-cruiser.js", ".dependency-cruiser.json"];
 

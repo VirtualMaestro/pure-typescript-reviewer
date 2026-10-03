@@ -524,7 +524,7 @@ missing from. So the gate compares runs against a key, as the cost and intent co
 | `async-patterns.md:31`, `error-handling.md:12` | the unread `allSettled` result is checked twice. §3.2 runs both in 1 pass, and the duplicate line stays |
 | `architecture.md:44`, `code-quality.md:20-22` | Architecture says Dependency Hygiene owns dead code, and Code Quality holds the checks |
 | `SKILL.md:133`, `:135`, and the Config pass | the config flags are audited twice, §4 |
-| `SKILL.md:66`, step 16 | the lines say "pinned-major", but `knip@6.31.0` (`architecture.md:74`) and `dependency-cruiser@18.1.0` (`tools/run-cruise.mjs:15`) pin exact versions. The architecture proposal designed `<tool>@<major>` (its §7 diagram), and no recorded reason explains the exact pins |
+| `SKILL.md:66`, step 16 | the lines say "pinned-major", but Knip and dependency-cruiser pinned exact versions, with no recorded reason. Fixed 2026-10-03: `knip@6` (`architecture.md:74`) and `dependency-cruiser@18` (`tools/run-cruise.mjs:15`) |
 | `src/paths.ts:17` | Antigravity now defaults to `.agents/skills` and reads `.agent/skills` for backward compatibility (antigravity.google/docs/skills). The installer writes `.agent/` |
 
 ## Appendix A — the FULL lines and their rules
