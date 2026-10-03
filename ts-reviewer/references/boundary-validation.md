@@ -13,7 +13,7 @@ checks:
 - lying to the compiler — fix: an unverified boundary, by validating it with a schema or a hand-written guard, then using the type the schema infers
 - lying to the compiler — a fetch wrapper generic, `get<T>(url): Promise<T>`, that casts internally: High, it moves the lie into a helper every caller trusts
 - lying to the compiler — a validation library already in the dependencies while the boundaries still cast: Medium, the tool is there, wire it in
-- environment and config — `process.env.X` read across the codebase with `!` or `as string`: Medium, validate every variable once at startup into a typed frozen config every module imports
+- environment and config — `process.env.X` read across the codebase with `!` or `as string`: Medium, validate every variable once at startup into a typed frozen config every module imports, lint-owned by `no-restricted-syntax: env-cast`
 - environment and config — a missing required setting discovered deep at first use: Medium, fail at boot with a message naming it
 - dto and domain separation — an external wire type, an API response shape, a DB row, or a third-party SDK type used as the domain model in a deep module: Medium
 - dto and domain separation — note: a wire type in the domain couples core logic to a contract someone else owns, so a rename or a nullability change ripples everywhere

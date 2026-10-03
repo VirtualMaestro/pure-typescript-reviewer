@@ -69,6 +69,9 @@ custom_sections:
 - discovery_summary
 - subagent_template
 - pass_queue
+- pass_groups
+- pass_agent
+- skill_lint
 - report_format
 
 enforcement:

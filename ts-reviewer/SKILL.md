@@ -33,7 +33,7 @@ preconditions:
 
 scope:
 - `.ts`, `.mts`, and `.cts` files are reviewed alike
-- `.d.ts` files are reviewed by the Type Safety and Config domains only: a declaration has no runtime behavior
+- `.d.ts` files are reviewed by the Type Safety domain only: a declaration has no runtime behavior
 - `.tsx` is out of scope
 - the analysis scope in a scoped mode is the diff file list, and the reading scope is wider
 - `--affected` widens Architecture evidence to modules reaching a changed module, and does not widen the analysis scope
@@ -71,6 +71,7 @@ forbidden_behaviors:
 outputs:
 - `code-smells/report.md` in the project root: the scan report, and the work plan fix reads
 - `code-smells/passes/`: the pass queue, the cached diagnostics, and 1 JSONL file per pass
+- the scout agent file named in `pass_agent`, written once, after the operator answers the scout question
 - `code-smells/knip.json`, `projects.json`, `co-change.md`, `cruise-summary.md`, `metrics.md`, and graph and diagram directories when Architecture is active
 - `code-smells/suggested.dependency-cruiser.cjs` when prose declares dependency rules and no machine-readable declaration owns them
 - the `## Architecture Opportunities` section of the report only when Architecture is active and at least 1 confirmed finding exists
@@ -137,7 +138,7 @@ workflow:
 13. read `package.json` for the dependencies and the module type, and verify the TypeScript version, `engines.node`, and `@types/node` against `target_stack`
 14. identify declared entry points from `package.json#exports`, `main`, `bin`, and the `start`, `dev`, and `serve` scripts
 15. count the markers `hot_marker` in `references/stack-cost.md` defines across the files in scope, and name the count in the discovery summary
-16. when Architecture is active, inspect local Knip and dependency-cruiser binaries and ask once before running either missing tool through pinned-major `npx -y`
+16. ask once before a pinned-major `npx -y` run: the skill lint always, Knip and dependency-cruiser when Architecture is active and missing locally
 17. collect the context files named in `scope:` when the scope mode is scoped
 18. identify feature slices and public entry points when Architecture is active, leaving graph discovery to its mechanical pre-pass
 19. collect machine-readable dependency rules and prose from ADR directories, `ARCHITECTURE.md`, README, and `CONTRIBUTING.md`
@@ -149,11 +150,11 @@ workflow:
 25. read the reference file named in `domains` before each analysis pass
 26. run the mechanical pre-pass in `references/architecture.md` when Architecture is active, passing the approved tool decision and scoped base
 27. report the discovery summary in the shape of `discovery_summary`, including skipped and clean mechanical results
-28. build the pass list: 1 pass per active domain, split by directory when scoped files > 20, with the shared types visible to every pass
+28. build the pass list: 1 pass per `pass_groups` row holding an active domain, with the files of its rule, split by directory above 20
 29. write `code-smells/passes/queue.md` in the shape of `pass_queue`, in its domain order, and skip a pass marked `done` on a resume
 30. run the pending passes in waves of the wave size, as sub-agents shaped by `subagent_template`, or in the main agent when the wave size is 1
 31. wait for every agent of a wave, then mark each pass `done` when the last line of its file is the `done` line, and `pending` otherwise
-32. mark a pass `failed` after 2 attempts without a `done` line, name it in the discovery summary, and report its domain as not run
+32. mark a pass `failed` after 2 attempts without a `done` line, name it in the discovery summary, and report its domains as not run
 33. read the findings of every `done` pass from its `.jsonl` file before the re-read below
 34. re-read the exact lines in the current file state before a finding enters the report
 35. read the callers to verify a data flow a finding rests on, or mark its problem statement with "if <condition>" and cap its severity at Medium
@@ -254,6 +255,10 @@ Test runner: vitest / jest / mocha / node:test / none
 Hot paths: <N> marked / none: hot rests on loop bodies alone
 Files in scope: <N> .ts files (+ <M> context files)
 Agents per wave: <N>
+Main agent: <model>
+Pass agent: ts-reviewer-scout <model> <effort> / the default sub-agent; Architecture on the main agent
+Skill lint: <N> findings / declined / failed: <reason>
+Filtered passes: <group> <matched>/<scoped> files, or none
 Resumed: <done>/<total> passes from code-smells/passes/queue.md, or no
 Architecture projects: <config and source roots, when active>
 Architecture tools: <local or approved npx versions, when active>
@@ -269,12 +274,14 @@ Declared dependency rules:
 
 subagent_template:
 ```
-You are a specialized TypeScript reviewer focused on [DOMAIN].
+You are a specialized TypeScript reviewer focused on [DOMAINS].
 Target stack: TypeScript 5.9.x, target and lib ES2024, Node 24, ESM under nodenext, tsc emitting JavaScript that Node runs — never recommend anything outside it.
-Read the reference checklist: [REFERENCE_PATH]
+Read each reference checklist: [REFERENCE_PATHS]
 Read the cost slots: [STACK_COST_PATH], then fill `hot` and `fix_cost` for every finding.
 Write `fix` as a change after which a rescan would not raise the finding again, whatever it costs, and fill `fix_cost` for that change: on a hot path, fix mode designs a cheaper one.
 Report a pattern even when a test, a commit, or a decision record suggests it is deliberate: only a comment at the site drops it.
+Skip every checklist line carrying "lint-owned by" when this reads yes: [SKILL_LINT_RAN]
+Write the problem of a finding whose data flow leaves these files as "if <condition>": the main agent reads the callers.
 Review these files: [FILE_LIST]
 Context files (read-only, do NOT report issues): [CONTEXT_FILE_LIST]
 Scope mode: [full|uncommitted|branch|commits:N]
@@ -284,7 +291,7 @@ Reply with 1 line: the pass id, the findings count, the files count. The file is
 
 Output JSONL, one object per line:
 {
-  "category": "[DOMAIN]",
+  "category": "[the domain whose checklist names the pattern]",
   "severity": "highest|high|medium|low",
   "title": "Short descriptive title",
   "file": "relative/path.ts",
@@ -303,8 +310,9 @@ Output JSONL, one object per line:
 pass_queue:
 - `--agents N` in the request sets the wave size, and the default is 3
 - `--agents 1` runs 1 pass at a time in the main agent, with no sub-agent
-- the pass id is the domain slug, or `<domain slug>.<directory slug>` for a split pass
-- the domain order: Security, Type Safety, Async Patterns, Error Handling, Boundary Validation, Config, Dependency Hygiene, Modernization, Code Quality, Architecture
+- the pass id is the group id of `pass_groups`, or `<group id>.<directory slug>` for a split pass
+- the pass order is the row order of `pass_groups`, after the row `lint-skill` of `skill_lint`
+- a queue holding a pass id absent from `pass_groups` predates pass groups: restart it without the resume ask
 - a status is `pending`, `done`, or `failed`, and `Attempts` counts the waves the pass ran in
 ```markdown
 # Pass queue
@@ -313,10 +321,52 @@ HEAD: <sha>
 Scope: <mode>
 Agents per wave: <N>
 
-| Pass | Domain | Files | Status | Attempts | Findings |
+| Pass | Domains | Files | Status | Attempts | Findings |
 |---|---|---|---|---|---|
 | security | Security | 42 | done | 1 | 7 |
-| type-safety.src-auth | Type Safety | 12 | pending | 1 | |
+| type-safety+boundary-validation.src-auth | Type Safety, Boundary Validation | 12 | pending | 1 | |
+```
+
+pass_groups:
+- a group runs its active domains in 1 pass: the agent reads each reference, and a finding keeps the category of the domain that raised it
+- the group id joins the domain slugs with `+`
+- every pass reads the shared types as context, whatever the files of its rule
+- a filtered group takes the scoped files that the `workflow:` command of any of its references lists
+- a filtered group takes every scoped file when the skill lint did not run and the project linter enables no `no-floating-promises`
+
+| Group | Domains | Files |
+|---|---|---|
+| `security` | Security | every scoped file |
+| `type-safety+boundary-validation` | Type Safety, Boundary Validation | every scoped file |
+| `async-patterns+error-handling` | Async Patterns, Error Handling | filtered |
+| `config+dependency-hygiene` | Config, Dependency Hygiene | no `.ts` file: the project files each reference reads |
+| `modernization+code-quality` | Modernization, Code Quality | every scoped file |
+| `architecture` | Architecture | the inputs `references/architecture.md` names |
+
+pass_agent:
+- every group runs as the `ts-reviewer-scout` agent, except `architecture`, which runs as the default sub-agent on the main agent's model
+- the scout file is `.claude/agents/ts-reviewer-scout.md` on Claude Code and `.codex/agents/ts-reviewer-scout.toml` on Codex, in the project root
+- ask once for the scout model and effort when the scout file is absent, and write the answer to it
+- offer the models the host's agent call lists, or take the name the operator types when the host lists none
+- the answer "the main agent's model" writes `inherit` on Claude Code and leaves `model` out on Codex
+- pass the scout model, and the effort where the call takes one, in each agent call: a host can load a new agent file late
+- `--scout <model>` in the request wins for 1 run, is not written to the scout file, and skips the scout question
+- a run with no operator answer writes no scout file and runs every group as the default sub-agent
+- a host with no scout file format runs every group as the default sub-agent
+
+skill_lint:
+- the config is `tools/eslint.config.mjs` in this skill: ESLint core rules and typescript-eslint rules, pinned by the command below
+- a reference line carrying "lint-owned by" names the rule that finds its pattern, and no analysis pass reads that line while the skill lint runs
+- `ts/` in an owner stands for `@typescript-eslint/`, and an id after a colon names the 1 message of the rule that the line owns
+- a lint finding carries `hot: unknown` and `fix_cost: none`, and the main agent sets both by `references/stack-cost.md` at the re-read
+- add `--in-diff` to the `lint-pass.mjs` command in a scoped mode: the skill lint reads the scoped files only
+- run it after step 21, and write its findings as the pass `lint-skill` with `tools/lint-pass.mjs`, which takes category, severity, and fix from the owning line
+- a declined or failed run marks the pass `lint-skill` failed, and every analysis pass keeps the lint-owned lines
+- the skill lint replaces no project linter: step 21 runs the project config as before
+```bash
+SKILL=<the directory this file was loaded from>
+npx -y -p eslint@10 -p typescript-eslint@8 -p typescript@5.9 eslint -c "$SKILL/tools/eslint.config.mjs" --format json [files] 2>/dev/null > code-smells/passes/lint-skill.json
+node "$SKILL/tools/lint-pass.mjs" --refs "$SKILL/references" --lint code-smells/passes/lint-skill.json --out code-smells/passes/lint-skill.jsonl
 ```
 
 report_format:

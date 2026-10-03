@@ -680,3 +680,62 @@ test("configs resolving the same file set collapse to one, and a repository-wide
 
   rmSync(dir, { recursive: true, force: true });
 });
+
+test("every lint-owned reference line names a rule of the skill lint, and every rule message has 1 owner", async () => {
+  const { readOwners } = await import("./ts-reviewer/tools/lint-pass.mjs");
+  const { rules } = await import("./ts-reviewer/tools/lint-rules.mjs");
+  const owners = readOwners(path.join(repoRoot, "ts-reviewer", "references"));
+  assert.ok(owners.length > 0);
+  const syntaxIds = new Set(rules["no-restricted-syntax"].slice(1).map((s) => s.message));
+  for (const o of owners) {
+    assert.ok(rules[o.rule], `${o.file}:${o.line} names ${o.rule}, which the skill lint does not run`);
+    if (o.rule === "no-restricted-syntax") assert.ok(syntaxIds.has(o.id), `${o.file}:${o.line} names selector ${o.id}, which no selector carries`);
+  }
+  const keys = owners.map((o) => `${o.rule}#${o.id}`);
+  assert.deepEqual(keys.filter((k, i) => keys.indexOf(k) !== i), [], "a rule message owned by 2 lines");
+  for (const rule of Object.keys(rules)) {
+    const own = owners.filter((o) => o.rule === rule);
+    assert.ok(own.length > 0, `${rule} runs with no owning reference line`);
+    assert.ok(own.every((o) => o.id) || own.length === 1, `${rule} has an owner with no id beside another owner`);
+  }
+  for (const id of syntaxIds) assert.ok(keys.includes(`no-restricted-syntax#${id}`), `selector ${id} has no owning line`);
+});
+
+test("lint-pass turns owned ESLint messages into pass lines and drops the rest", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "lint-pass-"));
+  mkdirSync(path.join(dir, "src"));
+  writeFileSync(path.join(dir, "src", "a.ts"), "export enum Role { A }\nexport const f = (s: string) => eval(s);\nexport const g = (x: string | null) => x || 'd';\n");
+  const file = path.join(dir, "src", "a.ts");
+  const eslint = [
+    { filePath: file, messages: [
+      { ruleId: "no-restricted-syntax", messageId: "restrictedSyntax", message: "enum", line: 1 },
+      { ruleId: "no-eval", messageId: "unexpected", message: "`eval` can be harmful.", line: 2 },
+      { ruleId: "@typescript-eslint/prefer-nullish-coalescing", messageId: "preferNullishOverOr", message: "Prefer ??", line: 3 },
+    ] },
+    { filePath: path.join(dir, "src", "b.ts"), messages: [{ ruleId: null, fatal: true, message: "Parsing error: not in the project", line: 1 }] },
+  ];
+  writeFileSync(path.join(dir, "lint.json"), JSON.stringify(eslint));
+  const out = run(path.join(tools, "lint-pass.mjs"), ["--refs", path.join(repoRoot, "ts-reviewer", "references"), "--lint", "lint.json", "--out", "pass.jsonl"], dir);
+  assert.match(out, /2 findings, 2 files, 1 unowned messages dropped, 1 files unparsed/);
+  const lines = readFileSync(path.join(dir, "pass.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  assert.deepEqual(lines.at(-1), { done: true, findings: 2, files: 2 });
+  const [enumLine, evalLine] = lines;
+  assert.equal(enumLine.category, "Modernization");
+  assert.equal(enumLine.severity, "high");
+  assert.equal(enumLine.file, "src/a.ts");
+  assert.match(enumLine.snippet, /export enum Role/);
+  assert.equal(evalLine.category, "Security");
+  assert.equal(evalLine.severity, "highest");
+  assert.equal(evalLine.in_diff, false);
+  assert.equal(evalLine.fix_cost, "none");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("lint-pass fails on output that is not ESLint JSON", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "lint-pass-"));
+  writeFileSync(path.join(dir, "lint.json"), "npm notice\n");
+  const res = spawnSync(process.execPath, [path.join(tools, "lint-pass.mjs"), "--refs", path.join(repoRoot, "ts-reviewer", "references"), "--lint", "lint.json", "--out", "pass.jsonl"], { cwd: dir, encoding: "utf8" });
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /not ESLint JSON/);
+  rmSync(dir, { recursive: true, force: true });
+});

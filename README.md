@@ -17,6 +17,8 @@ Four modes, one skill:
 
 ## What's New
 
+**3.4.0 — a cheaper scan.** A pinned ESLint + typescript-eslint config now runs inside the scan (1 approval, through `npx`), and the 49 checklist lines it decides by rule leave the AI passes. A default scan runs 5 pass groups instead of 9 domain passes, the async and error group reads only the files that can hold its patterns, and the config and dependency group reads no `.ts` file. The pass model is yours to choose once per project. The report format is unchanged.
+
 **3.3.0 — investigate mode.** Before a fix changes flagged code, the skill now checks whether the pattern is there on purpose: a test that pins it, a commit message that explains it, an ADR that decides it. Deliberate code is left alone and gets a `// Deliberate:` comment citing the evidence, so the next scan does not flag it again. See [Investigate](#investigate--why-is-this-code-this-way).
 
 **3.2.0 — hot paths.** Mark performance-critical code with `/** @hotpath */`. A fix that would add an allocation, a validation, or an extra pass there is redesigned to pay that cost outside the hot path, or handed to you as a choice when it cannot be. See [Hot paths](#hot-paths--hotpath).
@@ -109,6 +111,10 @@ Claude will analyze the project and write a report to `code-smells/report.md` in
 With Architecture active, the same directory also holds project discovery, Knip, graph, metric, co-change, rule, and Mermaid artifacts.
 
 The analysis passes run in waves. `--agents N` sets how many run at once (default 3; `--agents 1` runs them one at a time in the main agent). Each pass writes its own findings file under `code-smells/passes/`, and the queue in `code-smells/passes/queue.md` tracks which passes are done, so an interrupted scan does not lose finished work.
+
+The scan also runs a skill lint: a pinned ESLint + typescript-eslint config (`ts-reviewer/tools/eslint.config.mjs`), through `npx -y eslint@10 typescript-eslint@8 typescript@5.9`, after 1 approval. The checklist lines it decides by rule are marked `lint-owned` in the references, its findings land in the report like any pass, and the AI passes skip those lines. Declined or failed, the scan falls back to the passes for every line. Your project's own linter still runs as before.
+
+The passes run in groups: Type Safety with Boundary Validation, Async Patterns with Error Handling, Config with Dependency Hygiene, Modernization with Code Quality, and Security and Architecture alone.
 
 #### Domain flags
 
@@ -351,6 +357,8 @@ Validate a report directly with `node ts-reviewer/tools/validate-report.mjs --re
 - **Resume an interrupted scan** — run the same scan again. When `code-smells/passes/queue.md` exists, the skill asks whether to resume (finished passes are skipped, cached `tsc` and linter output is reused on the same commit) or restart from scratch.
 
 - **Claude Code users** — `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` in `settings.json` under `env` caps sub-agents for every session on the host. It is independent of `--agents`, which caps one review run and works in every supported agent.
+
+- **Pick the pass model once** — the first scan asks which model and effort the analysis passes use, and writes the answer to `.claude/agents/ts-reviewer-scout.md` (Claude Code: `model`, `effort`) or `.codex/agents/ts-reviewer-scout.toml` (Codex: `model`, `model_reasoning_effort`). A smaller model there, for example Sonnet at `high`, costs less, while the main agent keeps verifying every finding. Delete the file to be asked again, or pass `--scout <model>` for 1 run. Architecture always runs on the main agent's model.
 
 - **Commit before running fix** — so you can `git diff` to review changes and `git checkout -- .` to revert if needed.
 

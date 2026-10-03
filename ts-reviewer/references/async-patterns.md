@@ -6,9 +6,15 @@ scope:
 - errors lost to the async machinery: a floating promise, an unread `allSettled` result
 - every catch, throw, and failure-design check belongs to `references/error-handling.md`
 
+workflow:
+1. list the scoped files where a check below can fire, when `pass_groups` in `SKILL.md` filters this domain
+```bash
+grep -lE 'async|await|Promise|\.then\(|\.catch\(|setTimeout|setInterval|Abort(Signal|Controller)|\.on\(|addEventListener|fetch\(' [files]
+```
+
 checks:
-- floating promises — an async function called with no `await`, `.then()`, or `.catch()`: High, use `await doWork()` or `void doWork().catch(handleError)`
-- floating promises — `items.forEach(async (item) => ...)`: High, `forEach` drops the returned promise, use `for...of` with `await` or `Promise.all(items.map(...))`
+- floating promises — an async function called with no `await`, `.then()`, or `.catch()`: High, use `await doWork()` or `void doWork().catch(handleError)`, lint-owned by `ts/no-floating-promises`
+- floating promises — `items.forEach(async (item) => ...)`: High, `forEach` drops the returned promise, use `for...of` with `await` or `Promise.all(items.map(...))`, lint-owned by `ts/no-misused-promises`
 - floating promises — a floating promise in a constructor, which cannot be async: High, use a static factory, `static async create(): Promise<Foo>`
 - floating promises — an async event handler whose caller expects no promise: Medium, catch inside the handler
 - race conditions — several async operations modifying shared state with no coordination: High, serialize them through a promise chain or an async mutex, or make them idempotent
@@ -34,13 +40,13 @@ checks:
 - cancellation — a timer, listener, or stream left uncleaned on cancellation: High
 - promise utilities — a manual promise with separate resolve and reject variables where `Promise.withResolvers()` applies: Low, use it
 - promise anti-patterns — `new Promise()` wrapping an operation that is already async: Low, use async and await
-- promise anti-patterns — `async function() { return await bar(); }` outside a try block: Low, the `await` is unnecessary
+- promise anti-patterns — `async function() { return await bar(); }` outside a try block: Low, the `await` is unnecessary, lint-owned by `ts/return-await: disallowedPromiseAwait`
 - promise anti-patterns — `await` and `.then()` chains mixed in 1 function: Low
 - promise anti-patterns — a sequential `await` in a loop over independent iterations of a bounded collection under 10 known items: Medium, use `Promise.all(items.map(...))`
 - promise anti-patterns — note: an unbounded collection or network and disk work needs a concurrency cap instead, under concurrency limits
-- async iterators — an async generator that never yields: Low, it wants to be a plain async function
+- async iterators — an async generator that never yields: Low, it wants to be a plain async function, lint-owned by `require-yield`
 - async iterators — no cleanup in the `finally` of an async iteration: Medium
 - async iterators — an async iterator with no cleanup on early termination through `break` or `return`: Medium
-- timer patterns — `setTimeout` or `setInterval` called with no stored timer id: Medium
+- timer patterns — `setTimeout` or `setInterval` called with no stored timer id: Medium, lint-owned by `no-restricted-syntax: timer-no-id`
 - timer patterns — `setInterval` driving async work: High, the calls stack up, use a recursive `setTimeout` after the work completes
 - timer patterns — `setTimeout(fn, 0)` used to coordinate async work: Low

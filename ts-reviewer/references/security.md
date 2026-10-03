@@ -16,14 +16,14 @@ read_first:
 - report at the listed severity when the source cannot be traced in the available files, and state the assumption: "assumes `x` can carry external input"
 
 checks:
-- injection — `eval()` and `new Function()` executing a dynamic string: Highest, use a lookup table, a strategy, or a safe parser
+- injection — `eval()` and `new Function()` executing a dynamic string: Highest, use a lookup table, a strategy, or a safe parser, lint-owned by `no-eval`, `no-new-func`, `ts/no-implied-eval`
 - injection — a template literal inside a shell command, `exec(\`cmd ${userInput}\`)`: Highest, use `execFile` with an argument array
 - injection — a dynamic `import()` with a user-controlled path: Highest, allow only a fixed list of module paths
 - injection — SQL or NoSQL built by string concatenation: Highest, use parameterized queries
 - injection — `new RegExp(userInput)`: High, it carries both ReDoS and injection, escape the input or use a static pattern
 - ssrf — `fetch()`, `http.request()`, or any HTTP client called with a URL built from external input and no protocol and host allowlist: High
 - ssrf — fix: an unallowlisted outbound URL, by parsing it with `new URL()`, checking the protocol is http or https, checking the host against an explicit allowlist, and rejecting redirects into internal ranges
-- dom sinks — `element.innerHTML = x`, `insertAdjacentHTML`, or `document.write` where `x` has any non-literal part: High, use `textContent`, or a sanitizer only when HTML is genuinely required
+- dom sinks — `element.innerHTML = x`, `insertAdjacentHTML`, or `document.write` where `x` has any non-literal part: High, use `textContent`, or a sanitizer only when HTML is genuinely required, lint-owned by `no-restricted-syntax: dom-sink`
 - dom sinks — `location.href = x` or `window.open(x)` from external input: Medium, a `javascript:` URL runs, so validate the protocol with `new URL()`
 - dom sinks — note: the 2 checks above apply only in a file whose `lib` carries `dom`
 - prototype pollution — `Object.assign(target, untrustedSource)` where the source can carry `__proto__`: High, filter the keys or build the target with `Object.create(null)`
