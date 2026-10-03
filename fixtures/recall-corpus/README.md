@@ -48,6 +48,20 @@ The project has no linter config on purpose. Case 15 needs that, and so does the
 
 5. Write the row in `RESULTS.md`.
 
+## Measuring a series on a subscription
+
+On a Pro or Max plan nothing is billed per token. A series draws on the 5-hour session limit and
+on the weekly limit, which `/usage` shows as bars. Only the operator can read `/usage`.
+
+1. Before a series, the operator runs `/usage` and gives the session % and the weekly %.
+2. The 3 runs of the series start in parallel, and the scoring session does nothing else until
+   they end.
+3. After the series, the operator runs `/usage` again. The difference is the series' share of
+   each limit. It is rough: other sessions on the account draw on the same limits.
+
+`RESULTS.md` records that difference per series beside the exact tokens of `tokens.mjs`. The
+`$` figures there are API list-price equivalents, an estimate, and not a charge.
+
 ## Running step 2 as a sub-agent
 
 Each run is a fresh Opus 5.5 sub-agent of the scoring session, 1 per run directory, and the 3
