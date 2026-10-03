@@ -25,6 +25,9 @@ started.
 | G0-1 | 3.4.0 (`e9ddc67`), skill lint declined | Opus 5.5, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 22/22 | 6 | 120 | 315783 | 3674042 | 50868 | 19925 | 5 groups; no operator, so the lint approval read as declined and the filter stayed off; $3.33 API-equivalent |
 | G0-2 | 3.4.0 (`e9ddc67`), skill lint declined | Opus 5.5, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 22/22 | 6 | 126 | 302751 | 3982521 | 53927 | 20442 | as G0-1; case 22 in a summary table; $3.39 |
 | G0-3 | 3.4.0 (`e9ddc67`), skill lint declined | Opus 5.5, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 22/22 | 6 | 128 | 296503 | 4036294 | 51952 | 19264 | as G0-1; passes wrote slug categories (`security`, `async-patterns`), which the main agent renamed: a template defect, fixed after this series; $3.33 |
+| G-1 | 3.4.0 (`877c529`), skill lint approved | Opus 5.5, high | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | L+R | P+R | - | L+R | P+R | P+R | P+R | P+R | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 118 | 322711 | 3722260 | 66225 | 20848 | async+error filtered to 7 of 27 files; case 10 is the accepted gap; $3.68 API-equivalent, main agent 55% |
+| G-2 | 3.4.0 (`877c529`), skill lint approved | Opus 5.5, high | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | L+R | P+R | - | L+R | P+R | P+R | P+R | P+R | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 120 | 299385 | 3518999 | 64236 | 18938 | as G-1; the main agent rewrote the lint fixes, whose checklist text is not a concrete fix; $3.49 |
+| G-3 | 3.4.0 (`877c529`), skill lint approved | Opus 5.5, high | P+R | P+R | L+R | P+R | P+R | L+R | P+R | L+R | P+R | - | L+R | P+R | P+R | P+R | P+R | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 124 | 307737 | 4076671 | 61308 | 17200 | as G-1; $3.58 |
 Run directories: `recall-corpus-XtGdoB` (B1), `recall-corpus-A2KzSC` (B2), `recall-corpus-0cLko1` (B3).
 
 ## Reading the baseline (2026-10-03)
@@ -87,3 +90,38 @@ no lint ran. Run directories: `recall-corpus-KDRr7v`, `recall-corpus-Tq0NF1`,
   write slugs. It now asks for the exact name from `[DOMAINS]`.
 - **Next series:** G with the skill lint approved in the prompt, which is the full 3.4.0 path.
   Then S.
+
+## Series G: pass groups, skill lint, and the filter (2026-10-03)
+
+The prompt approves the `npx` run in advance. Every run ran `lint-skill` (8 findings) and the 5
+groups. The filter gave async+error 7 of 27 files. Run directories: `recall-corpus-sbZL0z`,
+`recall-corpus-6HjMeR`, `recall-corpus-J7BOmh`.
+
+| | B | G0 | G | G vs G0 |
+|---|---|---|---|---|
+| Recall, all cases | 65/66 | 66/66 | 63/66 | case 10 missed 3 of 3 |
+| Recall, High+ | 42/42 | 42/42 | 42/42 | none lost |
+| API-equivalent, run | $4.47 | $3.35 | $3.58 | +7% |
+| API-equivalent, main agent | $1.72 | $1.51 | $1.90 | +26% |
+| API-equivalent, passes | $2.75 | $1.84 | $1.68 | −9% |
+| Main agent output tokens | 55k | 52k | 64k | +23% |
+| `/usage`, series | not measured | session +11%, week +1% | session +10%, week +1% | within reading noise |
+
+**Reading:**
+- **The bar of §7 holds for High+.** No High+ case is lost.
+- **Case 10 is lost in every G run.** It is the Medium gap §3.3 accepts: `ledger.ts` carries no
+  marker. B missed it once in 3, and G0, unfiltered, never. The filter costs exactly this case.
+- **On this corpus the skill lint does not pay for itself.** It cuts what the passes spend by
+  $0.16 and adds $0.39 to the main agent:
+  - running `npx` and the converter;
+  - merging 8 more findings;
+  - rewriting the `fix` field. `lint-pass.mjs` copies the checklist text, which is often a
+    reason (`a double cast defeats both checks`) rather than a concrete fix, so the main agent
+    rewrites it under "do not report a finding without … a concrete fix".
+- **The lint saving should grow with the file count, and its cost should not.** The pass saving
+  scales with the files the passes no longer reason over. The main agent's cost is per finding
+  and per run. 27 small files is the worst case for it. This is an expectation, not a
+  measurement.
+- **The §7 token bar** ("each lever lowers the run total against the run before it") fails for
+  the lint on this corpus. The operator decides between dropping the lint, keeping it for larger
+  projects, or cutting its main-agent cost first.
