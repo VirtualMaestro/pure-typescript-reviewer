@@ -31,6 +31,9 @@ started.
 | S-1 | 3.4.0 (`877c529`), skill lint declined, `--scout sonnet` | Opus 5.5 main, Sonnet 5.5 passes, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | - | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 106 | 324081 | 3481231 | 53907 | 15570 | 1 invalid JSON line in `security.jsonl` (`\w` in a regex), parsed leniently by the main agent; $2.70 API-equivalent, main agent 68% |
 | S-2 | 3.4.0 (`877c529`), skill lint declined, `--scout sonnet` | Opus 5.5 main, Sonnet 5.5 passes, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | - | P+R | P+R | P+R | R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 88 | 293054 | 2745787 | 60776 | 17719 | case 14 (High) missed by the Sonnet config pass, added by the main agent at its own config audit; security pass wrote check groups as categories; $2.57 |
 | S-3 | 3.4.0 (`877c529`), skill lint declined, `--scout sonnet` | Opus 5.5 main, Sonnet 5.5 passes, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 22/22 | 6 | 116 | 293683 | 3680177 | 57160 | 14928 | 2 invalid JSON lines in `security.jsonl`; categories written as check groups (`injection`); $2.67 |
+| G′-1 | 3.4.0 (`f953186`), skill lint approved, concrete lint fixes | Opus 5.5, high | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | L+R | P+R | - | L+R | P+R | P+R | P+R | P+R | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 122 | 321514 | 3968328 | 55674 | 19331 | $3.52 API-equivalent, main agent 52%; problem fields of selector findings were the bare id, rewritten by the main agent |
+| G′-2 | 3.4.0 (`f953186`), skill lint approved, concrete lint fixes | Opus 5.5, high | P+R | P+R | L+R | P+R | P+R | L+R | P+R | L+R | P+R | - | L+R | P+R | P+R | P+R | P+R | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 122 | 292910 | 3555475 | 62214 | 19091 | $3.42 |
+| G′-3 | 3.4.0 (`f953186`), skill lint approved, concrete lint fixes | Opus 5.5, high | P+R | P+R | L+R | P+R | P+R | L+R | P+R | L+R | P+R | - | L+R | P+R | P+R | P+R | P+R | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 128 | 313010 | 4095877 | 66697 | 19439 | $3.72 |
 Run directories: `recall-corpus-XtGdoB` (B1), `recall-corpus-A2KzSC` (B2), `recall-corpus-0cLko1` (B3).
 
 ## Reading the baseline (2026-10-03)
@@ -166,3 +169,31 @@ The configuration is G0's, with `--scout sonnet`. Every pass ran on `claude-sonn
 - **Case 10 (Medium)** is missed in 2 of 3 runs, against 3 of 3 found in G0. It is the hardest
   case: the failure modes live in a callee file.
 - **The main agent is now 2/3 of the spend.** The next cut is there.
+
+## Series G′: G with a concrete fix on every lint-owned line (2026-10-03)
+
+The skill is `f953186`. All 49 owner lines carry an action, and the main agent keeps a lint
+finding's title and fix as written. Run directories: `recall-corpus-szrcZp`,
+`recall-corpus-kc9NJ1`, `recall-corpus-n8RJdj`.
+
+| | G0 | G | G′ | G′ vs G0 |
+|---|---|---|---|---|
+| Recall, all / High+ | 66/66, 42/42 | 63/66, 42/42 | 63/66, 42/42 | case 10 (filter gap) lost 3 of 3 |
+| API-equivalent, run | $3.35 | $3.58 | $3.55 | +6% |
+| API-equivalent, main agent | $1.51 | $1.90 | $1.79 | +19% |
+| API-equivalent, passes | $1.84 | $1.68 | $1.75 | −5% |
+| `/usage`, series | session +11%, week +1% | session +10%, week +1% | session +11%, week +1% | |
+
+**Reading:**
+- **The concrete fixes cut the main agent's spend by 6%, not by the 26% that G added.**
+- **The rest is not the fix text.** The G′-1 transcript shows the main agent building the report
+  through a generated script. One heredoc failed on a quote and was written again, about 18k
+  characters of output twice. That cost is a property of how the main agent writes the report.
+  It belongs to the next target, the main agent, and not to the lint.
+- **Still open: 2 small lint costs**, fixed after this series:
+  - the `problem` field of a selector finding was the bare id (`enum`), which the main agent
+    rewrote. `lint-pass.mjs` now uses the owner's title there;
+  - the `enum` line read as if its reason described the replacement.
+- **Verdict on this corpus:** the pass groups pay (−25%). The Sonnet scout pays (−21% more). The
+  skill lint does not pay on 27 small files: +6% spend, and through the filter it costs case 10.
+  Whether it pays on a large project is not measured.

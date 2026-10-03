@@ -724,6 +724,7 @@ test("lint-pass turns owned ESLint messages into pass lines and drops the rest",
   assert.equal(enumLine.severity, "high");
   assert.equal(enumLine.file, "src/a.ts");
   assert.match(enumLine.snippet, /export enum Role/);
+  assert.equal(enumLine.problem, enumLine.title);
   assert.equal(evalLine.category, "Security");
   assert.equal(evalLine.severity, "highest");
   assert.equal(evalLine.in_diff, false);

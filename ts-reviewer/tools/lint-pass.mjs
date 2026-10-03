@@ -73,7 +73,7 @@ export function lintPass(results, owners, inDiff) {
         file,
         line: message.line,
         snippet: source.slice(from, message.line + 2).join("\n"),
-        problem: message.message,
+        problem: message.message === owner.id ? owner.title : message.message,
         fix: owner.fix || owner.title,
         auto_fixable: Boolean(message.fix),
         hot: "unknown",

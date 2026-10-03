@@ -8,7 +8,7 @@ scope:
 - the `tsconfig.json` values the stack pins belong to `references/tsconfig.md`
 
 checks:
-- non-erasable syntax — an `enum`, of any kind: High, use an `as const` object and a union of its values: it emits a runtime object, and `erasableSyntaxOnly` rejects it, lint-owned by `no-restricted-syntax: enum`
+- non-erasable syntax — an `enum`, of any kind: High, it emits a runtime object and `erasableSyntaxOnly` rejects it, so use an `as const` object and a union of its values, lint-owned by `no-restricted-syntax: enum`
 - non-erasable syntax — fix: an `enum`, with an `as const` object or a union
 ```typescript
 const Direction = { Up: 'up', Down: 'down', Left: 'left', Right: 'right' } as const;
