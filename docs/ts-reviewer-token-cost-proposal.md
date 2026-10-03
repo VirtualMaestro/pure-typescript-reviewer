@@ -1,8 +1,11 @@
 # Proposal — cut what a scan spends: a skill lint, pass groups, file rules, and a scout model
 
 **Audience:** the agent maintaining the `ts-reviewer` skill repository.
-**Status:** step 1 of §8 is done: the operator answered every §9 question on 2026-10-03.
-Step 2, the recall corpus, waits for a go-ahead. Nothing here is under `ts-reviewer/`, `cnlp/`, `src/`, or
+**Status:** steps 1–3 of §8 are done (2026-10-03). The operator answered every §9 question.
+`fixtures/recall-corpus/` is built (`839519d`). The baseline B ran 3 times: 65 of 66 case-runs
+found, every High+ case in every run, and about $4.3–4.7 per run. The main agent takes 34–41% of
+that, a share no lever of §3 touches (`fixtures/recall-corpus/RESULTS.md`). Step 4, the build,
+waits for a go-ahead. Nothing here is under `ts-reviewer/`, `cnlp/`, `src/`, or
 `README.md` yet. The lines in §5 were applied to a scratch copy of the skill on 2026-10-03, and
 `node --test cnlp/skill-format.test.js` passed there with 0 failures.
 
