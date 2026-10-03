@@ -28,6 +28,9 @@ started.
 | G-1 | 3.4.0 (`877c529`), skill lint approved | Opus 5.5, high | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | L+R | P+R | - | L+R | P+R | P+R | P+R | P+R | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 118 | 322711 | 3722260 | 66225 | 20848 | async+error filtered to 7 of 27 files; case 10 is the accepted gap; $3.68 API-equivalent, main agent 55% |
 | G-2 | 3.4.0 (`877c529`), skill lint approved | Opus 5.5, high | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | L+R | P+R | - | L+R | P+R | P+R | P+R | P+R | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 120 | 299385 | 3518999 | 64236 | 18938 | as G-1; the main agent rewrote the lint fixes, whose checklist text is not a concrete fix; $3.49 |
 | G-3 | 3.4.0 (`877c529`), skill lint approved | Opus 5.5, high | P+R | P+R | L+R | P+R | P+R | L+R | P+R | L+R | P+R | - | L+R | P+R | P+R | P+R | P+R | P+R | P+R | L+R | P+R | P+R | L+P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 124 | 307737 | 4076671 | 61308 | 17200 | as G-1; $3.58 |
+| S-1 | 3.4.0 (`877c529`), skill lint declined, `--scout sonnet` | Opus 5.5 main, Sonnet 5.5 passes, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | - | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 106 | 324081 | 3481231 | 53907 | 15570 | 1 invalid JSON line in `security.jsonl` (`\w` in a regex), parsed leniently by the main agent; $2.70 API-equivalent, main agent 68% |
+| S-2 | 3.4.0 (`877c529`), skill lint declined, `--scout sonnet` | Opus 5.5 main, Sonnet 5.5 passes, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | - | P+R | P+R | P+R | R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 21/22 | 6 | 88 | 293054 | 2745787 | 60776 | 17719 | case 14 (High) missed by the Sonnet config pass, added by the main agent at its own config audit; security pass wrote check groups as categories; $2.57 |
+| S-3 | 3.4.0 (`877c529`), skill lint declined, `--scout sonnet` | Opus 5.5 main, Sonnet 5.5 passes, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 22/22 | 6 | 116 | 293683 | 3680177 | 57160 | 14928 | 2 invalid JSON lines in `security.jsonl`; categories written as check groups (`injection`); $2.67 |
 Run directories: `recall-corpus-XtGdoB` (B1), `recall-corpus-A2KzSC` (B2), `recall-corpus-0cLko1` (B3).
 
 ## Reading the baseline (2026-10-03)
@@ -125,3 +128,41 @@ groups. The filter gave async+error 7 of 27 files. Run directories: `recall-corp
 - **The §7 token bar** ("each lever lowers the run total against the run before it") fails for
   the lint on this corpus. The operator decides between dropping the lint, keeping it for larger
   projects, or cutting its main-agent cost first.
+
+## Series S: pass groups with Sonnet passes, skill lint declined (2026-10-03)
+
+The configuration is G0's, with `--scout sonnet`. Every pass ran on `claude-sonnet-5-5` at
+`high`, the run agent's effort, and the main agent on Opus 5.5. Run directories:
+`recall-corpus-8JhYEQ`, `recall-corpus-NovKXj`, `recall-corpus-8G6tJF`.
+
+| | B | G0 | S | S vs G0 |
+|---|---|---|---|---|
+| Recall in the report, all cases | 65/66 | 66/66 | 64/66 | case 10 missed 2 of 3 |
+| Recall in the report, High+ | 42/42 | 42/42 | 42/42 | none lost |
+| Recall by the passes, High+ | 42/42 | 42/42 | 41/42 | case 14 missed once, recovered by the main agent |
+| API-equivalent, run | $4.47 | $3.35 | $2.65 | −21% (−41% vs B) |
+| API-equivalent, main agent | $1.72 | $1.51 | $1.77 | +17% |
+| API-equivalent, passes | $2.75 | $1.84 | $0.88 | −52% |
+| `/usage`, series | not measured | session +11%, week +1% | week +1%; the session window reset mid-series | |
+
+**Reading:**
+- **The scout passes the §7 bar.** Every High+ case is in the report in every run, and the
+  run total falls by a fifth against G0.
+- **The bar holds only because the main agent verifies.** The Sonnet config pass missed
+  `erasableSyntaxOnly` once (case 14, High). The main agent found it at its own config audit
+  (steps 9–11). That is the operator's design working: the smaller model finds, the larger one
+  checks.
+- **The smaller model is sloppier at the contract, and the main agent pays for it:**
+  - **invalid JSON:** 3 lines across 2 runs, a regex with `\w` or `\d` in the `fix`
+    field;
+  - **wrong categories:** check groups (`injection`) written instead of the domain, despite the
+    template line fixed after G0.
+
+  The main agent repaired both, and its share grew from 45% to 67%. A strict reader of
+  `passes/*.jsonl` would have lost those findings. Candidates:
+  - a `tools/` check that validates and repairs the JSONL before step 33;
+  - the category filled by the main agent from the pass file name rather than trusted from the
+    line.
+- **Case 10 (Medium)** is missed in 2 of 3 runs, against 3 of 3 found in G0. It is the hardest
+  case: the failure modes live in a callee file.
+- **The main agent is now 2/3 of the spend.** The next cut is there.
