@@ -4,10 +4,9 @@
 **Status:** steps 1–3 of §8 are done (2026-10-03). The operator answered every §9 question.
 `fixtures/recall-corpus/` is built (`839519d`). The baseline B ran 3 times: 65 of 66 case-runs
 found, every High+ case in every run, and about $4.3–4.7 per run. The main agent takes 34–41% of
-that, a share no lever of §3 touches (`fixtures/recall-corpus/RESULTS.md`). Step 4, the build,
-waits for a go-ahead. Nothing here is under `ts-reviewer/`, `cnlp/`, `src/`, or
-`README.md` yet. The lines in §5 were applied to a scratch copy of the skill on 2026-10-03, and
-`node --test cnlp/skill-format.test.js` passed there with 0 failures.
+that, a share no lever of §3 touches (`fixtures/recall-corpus/RESULTS.md`). Step 4 is done: the
+build is `3.4.0` on the branch `token-cost-3.4.0` (`326ac5a`), `npm test` passes, and §11 records
+the build decisions. Step 5, the G and S runs, waits for a go-ahead.
 
 **Decided** (operator, 2026-10-03):
 - **The symptom is the usage limit** (the 5-hour or weekly window), not the main agent's
@@ -507,7 +506,7 @@ missing from. So the gate compares runs against a key, as the cost and intent co
 | 2 | build `fixtures/recall-corpus/` | `KEY.md` and `prepare.mjs` committed |
 | 3 | runs B ×3 | `RESULTS.md` holds the baseline, and every seeded case is found at least once, or the fixture is fixed |
 | 4 | build §5 as `3.4.0` on a branch | `npm test` passes, the mapping self-check included |
-| 5 | runs L, G, S, 3 each | the bar of §7. A lever that fails it is dropped from the build |
+| 5 | runs G and S, 3 each. L runs only when G fails the bar, to tell the lint from the groups | the bar of §7. A lever that fails it is dropped from the build |
 
 ## 9. Questions for the operator
 
@@ -531,6 +530,29 @@ missing from. So the gate compares runs against a key, as the cost and intent co
 | `SKILL.md:133`, `:135`, and the Config pass | the config flags are audited twice, §4 |
 | `SKILL.md:66`, step 16 | the lines say "pinned-major", but Knip and dependency-cruiser pinned exact versions, with no recorded reason. Fixed 2026-10-03: `knip@6` (`architecture.md:74`) and `dependency-cruiser@18` (`tools/run-cruise.mjs:15`) |
 | `src/paths.ts:17` | Antigravity now defaults to `.agents/skills` and reads `.agent/skills` for backward compatibility (antigravity.google/docs/skills). The installer writes `.agent/` |
+
+## 11. Build decisions (step 4, 2026-10-03)
+
+| Decision | Why |
+|---|---|
+| 49 lines are lint-owned, not 53–56 | Several Appendix A lines stay with the passes (listed below). `type-safety.md:18` is removed (§9 question 3) |
+| the rules live in `tools/lint-rules.mjs` as plain data, and `eslint.config.mjs` imports them | the self-check in `tools.test.mjs` loads the rules with no ESLint installed |
+| an owner may name an id after a colon: a `messageId`, a `no-restricted-syntax` message, or a custom message | 1 rule can own several lines. `consistent-type-assertions` owns `modernization.md:21` by `as` and `:24` by `unexpectedObjectTypeAssertion`; the smoke run showed the angle-bracket `messageId` is `as` |
+| `modernization.md:53` is split into a pattern line and a `note:` line | the owner suffix took it past 250 characters |
+| a lint finding carries `hot: unknown` and `fix_cost: none`, and the main agent sets both at the re-read | the lint cannot read `references/stack-cost.md` |
+| a run with no operator answer writes no scout file and runs every group as the default sub-agent. `--scout` skips the question | a sub-agent run cannot answer, and the flag is the answer |
+| no installer change | the skill writes the scout file |
+| the smoke run on the corpus project found cases 3, 6, 8, 11, and 18 through the lint | a cold `npx` cache took 40 s |
+
+These Appendix A lines stay with the passes:
+
+| Line | Why it stays with the passes |
+|---|---|
+| `type-safety.md:19` | `no-unsafe-type-assertion` flags every narrowing assertion, not only `unknown as T`. The smoke run showed it |
+| `modernization.md:33` | its rule options conflict with those of `:35` |
+| `modernization.md:49` | the line itself says not to flag it twice under `verbatimModuleSyntax` |
+| `code-quality.md:25`, `:26` | naming noise on a convention the scan treats as a project choice |
+| `type-safety.md:11`, `:12`, `async-patterns.md:12` | the rule that owns their sibling line reports them |
 
 ## Appendix A — the FULL lines and their rules
 
