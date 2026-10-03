@@ -22,6 +22,9 @@ started.
 | B2 | 3.3.0 + pins (`5ca9790`) | Opus 5.5, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | - | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 21/22 | 10 | 188 | 408939 | 5100272 | 60808 | 18548 | case 10 missed by the error-handling pass; 41 raw, 32 in the report |
 | B3 | 3.3.0 + pins (`5ca9790`) | Opus 5.5, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 22/22 | 10 | 196 | 411003 | 5798841 | 61922 | 19269 | 45 raw, 35 in the report; the config pass also raised the enum, merged with case 18 |
 
+| G0-1 | 3.4.0 (`e9ddc67`), skill lint declined | Opus 5.5, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 22/22 | 6 | 120 | 315783 | 3674042 | 50868 | 19925 | 5 groups; no operator, so the lint approval read as declined and the filter stayed off; $3.33 API-equivalent |
+| G0-2 | 3.4.0 (`e9ddc67`), skill lint declined | Opus 5.5, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 22/22 | 6 | 126 | 302751 | 3982521 | 53927 | 20442 | as G0-1; case 22 in a summary table; $3.39 |
+| G0-3 | 3.4.0 (`e9ddc67`), skill lint declined | Opus 5.5, high | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | P+R | ok | ok | 14/14 | 22/22 | 6 | 128 | 296503 | 4036294 | 51952 | 19264 | as G0-1; passes wrote slug categories (`security`, `async-patterns`), which the main agent renamed: a template defect, fixed after this series; $3.33 |
 Run directories: `recall-corpus-XtGdoB` (B1), `recall-corpus-A2KzSC` (B2), `recall-corpus-0cLko1` (B3).
 
 ## Reading the baseline (2026-10-03)
@@ -59,3 +62,28 @@ These are exactly the pairs §3.2 groups: TS+BV, Mod+CQ, and Config+Dep.
   discovery, the step 34 re-read, the merge, the report, and validation. In this corpus that
   share is the next target after L, G, and S. Record it before step 4, so the proposal does
   not promise a cut it cannot deliver.
+
+## Series G0: pass groups only (2026-10-03)
+
+The 3 runs had no operator. The skill lint asks for approval before `npx`, so the runs read
+silence as declined. G0 therefore measures the pass groups alone, with the filter off, because
+no lint ran. Run directories: `recall-corpus-KDRr7v`, `recall-corpus-Tq0NF1`,
+`recall-corpus-RaQe4U`.
+
+| | B (mean of 3) | G0 (mean of 3) | Change |
+|---|---|---|---|
+| Recall, all cases | 65/66 | 66/66 | none lost |
+| Recall, High+ | 42/42 | 42/42 | none lost |
+| Agents per run | 10 | 6 | −4 |
+| API-equivalent, run | $4.47 | $3.35 | −25% |
+| API-equivalent, main agent | $1.72 | $1.51 | −12% |
+| API-equivalent, passes | $2.75 | $1.84 | −33% |
+| `/usage`, series | not measured | session +11%, week +1% | |
+
+**Reading:**
+- The pass groups pass the §7 bar on their own: no case is lost, and spend falls by a quarter.
+- The main agent is now 45% of the run. That share is the next target.
+- The template line `"category": "[the domain whose checklist names the pattern]"` let the passes
+  write slugs. It now asks for the exact name from `[DOMAINS]`.
+- **Next series:** G with the skill lint approved in the prompt, which is the full 3.4.0 path.
+  Then S.

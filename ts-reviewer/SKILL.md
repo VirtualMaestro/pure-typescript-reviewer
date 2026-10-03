@@ -291,7 +291,7 @@ Reply with 1 line: the pass id, the findings count, the files count. The file is
 
 Output JSONL, one object per line:
 {
-  "category": "[the domain whose checklist names the pattern]",
+  "category": "[1 domain name of [DOMAINS], written exactly as there: the domain whose checklist names the pattern]",
   "severity": "highest|high|medium|low",
   "title": "Short descriptive title",
   "file": "relative/path.ts",
