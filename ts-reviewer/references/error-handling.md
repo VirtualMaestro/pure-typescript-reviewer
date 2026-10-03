@@ -13,11 +13,11 @@ grep -lE 'catch|throw|Promise\.reject|allSettled|process\.exit|Error|\.message|o
 ```
 
 checks:
-- silent failures — an empty catch block, `catch (e) {}`, with no comment explaining it: High, lint-owned by `no-empty`
+- silent failures — an empty catch block, `catch (e) {}`, with no comment explaining it: High, handle the error, rethrow it with `{ cause }`, or comment why it is ignored, lint-owned by `no-empty`
 - silent failures — a `catch` that logs and continues on a path whose caller assumes success: Medium, High when the swallowed error leaves state partly mutated
 - silent failures — `Promise.allSettled()` results read with no check for `status === 'rejected'`: Medium
 - silent failures — fire-and-forget cleanup, `void cleanup()`, whose failure corrupts the next run: Medium
-- throw hygiene — throwing a non-Error value, a string or an object: Medium, stack traces and `instanceof` both depend on a real Error, lint-owned by `ts/only-throw-error`
+- throw hygiene — throwing a non-Error value, a string or an object: Medium, throw an `Error` or a subclass: stack traces and `instanceof` both depend on a real Error, lint-owned by `ts/only-throw-error`
 - throw hygiene — a custom error class that does not extend `Error`: Medium
 - throw hygiene — a rethrow discarding the original, `catch (e) { throw new Error(msg) }`: Medium, use `throw new Error(msg, { cause: e })`, lint-owned by `preserve-caught-error`
 - throw hygiene — an error message with no operational context, naming neither the operation nor the input id: Low

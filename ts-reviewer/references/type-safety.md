@@ -6,7 +6,7 @@ checks:
 - suppression directives — `// @ts-ignore` with no explanation: Medium, recommend `// @ts-expect-error` with a comment saying why the error is expected, lint-owned by `ts/ban-ts-comment`
 - suppression directives — a `// @ts-expect-error` that suppresses no error: Low, remove it, it masks nothing
 - suppression directives — either directive hiding a type-safety issue that can be fixed properly: Medium, address the root cause instead
-- any abuse — explicit `any` in a parameter, a return type, or a variable declaration: Medium internally, High on a public API or an exported function, lint-owned by `ts/no-explicit-any`
+- any abuse — explicit `any` in a parameter, a return type, or a variable declaration: Medium internally, High on a public API or an exported function, use `unknown` and narrow it, or the specific type, lint-owned by `ts/no-explicit-any`
 - any abuse — implicit `any` from a missing annotation the compiler cannot infer: Medium
 - any abuse — `any[]` where a typed array or a generic fits: Medium
 - any abuse — `Record<string, any>`: Medium, use `Record<string, unknown>` or a named interface
@@ -14,7 +14,7 @@ checks:
 - any abuse — the lowercase `object` type: Low, it is too wide, prefer a specific interface, lint-owned by `ts/no-restricted-types`
 - unsafe casts — `as Type` narrowing a wider type with no validation: High, a runtime mismatch reaches production unchecked
 - unsafe casts — fix: a narrowing cast, with a type guard, `satisfies`, or a validation function such as Zod, io-ts, or a hand-written one
-- unsafe casts — `as unknown as Type` or `as any as Type`: High, a double cast defeats both checks, lint-owned by `no-restricted-syntax: double-cast`
+- unsafe casts — `as unknown as Type` or `as any as Type`: High, validate the value with a guard or a schema: a double cast defeats both checks, lint-owned by `no-restricted-syntax: double-cast`
 - unknown discipline — `unknown` narrowed with `as` instead of a runtime check: High, that is `any` with extra steps
 - unknown discipline — fix: an unnarrowed `unknown`, with a `typeof`, `instanceof`, or `in` guard, or with schema validation
 - unknown discipline — `catch (e)` read through `(e as Error).message`: Medium, use `e instanceof Error ? e.message : String(e)`
@@ -38,17 +38,17 @@ function assertNever(x: never): never {
 }
 ```
 - exhaustiveness — an `if`/`else if` chain over a union with no final `else` covering the rest: Medium
-- generics — `function foo<T>(x: T): T` where `T` is never constrained and the generic relation is unused: Low, lint-owned by `ts/no-unnecessary-type-parameters`
+- generics — `function foo<T>(x: T): T` where `T` is never constrained and the generic relation is unused: Low, drop the type parameter and use the concrete type, lint-owned by `ts/no-unnecessary-type-parameters`
 - generics — `<T>` where `<T extends SomeBase>` is needed: Medium
 - generics — a generic constrained down to 1 concrete type: Low, use that type
-- generics — a generic default that hides complexity, `<T = any>`: Medium, lint-owned by `no-restricted-syntax: any-default`
+- generics — a generic default that hides complexity, `<T = any>`: Medium, default to `unknown` or drop the default, lint-owned by `no-restricted-syntax: any-default`
 - discriminated unions — a union that wants a discriminant and has no shared literal field: Medium
 - discriminated unions — a discriminant typed `string` instead of a literal type: Medium
 - discriminated unions — boolean flags modelling mutually exclusive states, `{ loading: boolean; error?: E; data?: T }`: Medium, the impossible combinations are representable
 - discriminated unions — fix: flag soup, with `{ status: 'loading' } | { status: 'error'; error: E } | { status: 'ready'; data: T }`
 - index signatures — `obj[key]` with no check that `key` exists: Medium when `noUncheckedIndexedAccess` is off
 - index signatures — `in` or `hasOwnProperty` used with no narrowing: Medium
-- return types — an exported function with no explicit return type: Medium, lint-owned by `ts/explicit-module-boundary-types: missingReturnType`
+- return types — an exported function with no explicit return type: Medium, declare the return type, lint-owned by `ts/explicit-module-boundary-types: missingReturnType`
 - return types — a function returning a different type per branch with no union return type: High, the inferred type can be wider than intended
 - type predicates — a type-guard function returning `boolean` instead of `x is Type`: Low, it works and loses the narrowing at the call site
 - type predicates — an assertion function, `asserts x is Type`, that does not throw on failure: High, the compiler trusts the assertion

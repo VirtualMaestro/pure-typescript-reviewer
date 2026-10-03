@@ -358,7 +358,8 @@ skill_lint:
 - the config is `tools/eslint.config.mjs` in this skill: ESLint core rules and typescript-eslint rules, pinned by the command below
 - a reference line carrying "lint-owned by" names the rule that finds its pattern, and no analysis pass reads that line while the skill lint runs
 - `ts/` in an owner stands for `@typescript-eslint/`, and an id after a colon names the 1 message of the rule that the line owns
-- a lint finding carries `hot: unknown` and `fix_cost: none`, and the main agent sets both by `references/stack-cost.md` at the re-read
+- a lint finding carries `hot: unknown` and `fix_cost: none`, and the main agent sets both by `references/stack-cost.md` only in a file holding a hot marker
+- keep the title and the fix of a lint finding as written: its owner line holds a concrete fix, and the re-read checks only that the snippet stands at its line
 - add `--in-diff` to the `lint-pass.mjs` command in a scoped mode: the skill lint reads the scoped files only
 - run it after step 21, and write its findings as the pass `lint-skill` with `tools/lint-pass.mjs`, which takes category, severity, and fix from the owning line
 - a declined or failed run marks the pass `lint-skill` failed, and every analysis pass keeps the lint-owned lines

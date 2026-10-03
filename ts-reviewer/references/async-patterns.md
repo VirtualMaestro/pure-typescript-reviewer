@@ -40,13 +40,13 @@ checks:
 - cancellation — a timer, listener, or stream left uncleaned on cancellation: High
 - promise utilities — a manual promise with separate resolve and reject variables where `Promise.withResolvers()` applies: Low, use it
 - promise anti-patterns — `new Promise()` wrapping an operation that is already async: Low, use async and await
-- promise anti-patterns — `async function() { return await bar(); }` outside a try block: Low, the `await` is unnecessary, lint-owned by `ts/return-await: disallowedPromiseAwait`
+- promise anti-patterns — `async function() { return await bar(); }` outside a try block: Low, drop the `await`: it is unnecessary, lint-owned by `ts/return-await: disallowedPromiseAwait`
 - promise anti-patterns — `await` and `.then()` chains mixed in 1 function: Low
 - promise anti-patterns — a sequential `await` in a loop over independent iterations of a bounded collection under 10 known items: Medium, use `Promise.all(items.map(...))`
 - promise anti-patterns — note: an unbounded collection or network and disk work needs a concurrency cap instead, under concurrency limits
-- async iterators — an async generator that never yields: Low, it wants to be a plain async function, lint-owned by `require-yield`
+- async iterators — an async generator that never yields: Low, make it a plain async function, lint-owned by `require-yield`
 - async iterators — no cleanup in the `finally` of an async iteration: Medium
 - async iterators — an async iterator with no cleanup on early termination through `break` or `return`: Medium
-- timer patterns — `setTimeout` or `setInterval` called with no stored timer id: Medium, lint-owned by `no-restricted-syntax: timer-no-id`
+- timer patterns — `setTimeout` or `setInterval` called with no stored timer id: Medium, store the id and clear it on teardown, lint-owned by `no-restricted-syntax: timer-no-id`
 - timer patterns — `setInterval` driving async work: High, the calls stack up, use a recursive `setTimeout` after the work completes
 - timer patterns — `setTimeout(fn, 0)` used to coordinate async work: Low
