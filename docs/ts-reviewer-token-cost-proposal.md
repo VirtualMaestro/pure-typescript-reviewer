@@ -484,8 +484,10 @@ missing from. So the gate compares runs against a key, as the cost and intent co
 
 **Measured per run:**
 - the seeded cases found and the controls kept out;
-- the input, output, and cache-read tokens. Claude Code reports `subagent_tokens` per
-  sub-agent in its task notification, and the run total is their sum plus the main agent's.
+- the fresh input, cache write, cache read, output, and thinking tokens of the run agent and of
+  every agent it started, summed from the transcripts by `fixtures/recall-corpus/tokens.mjs`.
+  The `subagent_tokens` of a task notification is not the spend: it equals the context size of
+  the agent's last turn (checked on 3 agents, 2026-10-03).
 
 **Bar:**
 - **High and Highest cases:** a case that B finds in 2 of 3 runs is found in 2 of 3 by L, by G,
