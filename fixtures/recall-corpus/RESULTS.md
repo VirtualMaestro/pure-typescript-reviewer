@@ -246,3 +246,84 @@ There is no answer key, so recall is compared between the 2 reports, not scored.
 - **A stray nested pass** from an earlier corpus series hung about 12 hours on a heredoc waiting
   for input, and the host killed it for low memory. Its file had already been written by a
   second script, so no result changed. Nothing in the skill notices a pass that stops replying.
+
+## The large project with Sonnet passes, and a first Codex run (2026-10-04)
+
+Both runs read the game-trends monorepo at `4ab9ac3`, the commit of the G0 and G′ pair. The skill
+is `8dba6a7` (`3.4.0` with the §11.1 fixes). Only the scan ran, in fresh clones under `%TEMP%`:
+`gt-s` for Claude Code and `gt-cx` for Codex. The original repository is untouched.
+
+### S′: G′ plus `--scout sonnet`, 1 run
+
+The main agent ran on Opus 5.5 at `high`. 21 passes ran on `claude-sonnet-5-5` at `high`, and the
+skill lint ran in the main agent. Prices are list prices per MTok: Opus input $4, cache write $5,
+cache read $0.20, output $20; Sonnet at half of each.
+
+| | G0 | G′ | S′ | S′ vs G′ |
+|---|---|---|---|---|
+| Passes | 21 | 21 + lint | 21 + lint | |
+| Skill lint findings | declined | 233 | 129 | the `393ebbb` test and extension fixes |
+| Raw findings | 241 | 344 | 263 | |
+| Report | 98 issues, 23 High | 88 issues, 18 High | 94 issues, 15 High | |
+| API-equivalent, run | $23.63 | $21.59 | **$11.62** | **−46%** |
+| API-equivalent, main agent | $4.26 | $4.17 | $3.56 | −15% |
+| API-equivalent, passes | $19.37 | $17.41 | $8.06 | −54% |
+| Wall clock | 41 min | 31 min | 26 min | |
+
+**Reading:**
+- **The Sonnet scout pays on a large project as on the corpus.** It halves the passes, and the
+  passes are 69% of the run here.
+- **The relative-import noise is gone.** G0 and G′ carried 31–44 High hits on imports without
+  `.js` in a bundler-resolved package. S′ has none.
+- **6 High sites of G′ are not High in S′.** Traced through the S′ pass lines:
+  - **2 are a severity gap in the rules.** Sonnet found both and graded them Medium, and the main
+    agent kept Medium. `boundary-validation.md:11` names `JSON.parse`, `res.json()`, env, CLI
+    arguments, messages, and files. It names neither a DB query result typed by a generic
+    (`sql<{ oid: number }>` in `db/src/infrastructure/db.ts:77`) nor a `JSON.parse` result used
+    as `any` with no annotation (`crawler/src/crawl/adapters/poki-adapter.ts:152`). Opus read
+    both as the High line and Sonnet did not. S′ is inconsistent with itself: a cast of a count
+    row in `db/src/database.test.ts:646` is High, and the `sql<T>` pattern on 4 test reads is
+    Medium.
+  - **3 look like run variance.** S′ reports a different issue a few lines away in the same file
+    (`runtime-core.ts:43` against `:38`, `runtime.ts` import-time state against a `globalThis`
+    cast), or nothing (`runtime-core.test.ts:82`, a fixed 10 ms timer).
+  - **1 is the removed noise:** a `.js` extension High on `dashboard/src/app/v1/game-growth/route.ts:1`.
+- **S′ found High sites G′ did not report:** a dispose failure dropped by a handler that takes no
+  error, a test fixture cast to a platform literal, a count-row cast, and every parameter
+  property site in the High pattern row.
+- **Sonnet's contract slips, repaired by the main agent:** 1 file
+  (`async-patterns+error-handling.dashboard.jsonl`) was 1 physical line with the 2 characters
+  `\n` between 4 records. No category was wrong this time.
+- **A pass can claim files it did not read.** The `security.crawler` agent said it searched rather
+  than read and skipped the 10 test files, and its `done` line still says `"files": 23`.
+- **The main agent wrote a helper script through a heredoc,** against `SKILL.md:69`.
+- **Points the run agent found unclear,** quoted:
+  - "split by directory above 20" (step 28): the directory level is not defined; the top level
+    left `dashboard` at 40 files;
+  - "every group runs as the `ts-reviewer-scout` agent" (`pass_agent:`) beside `--scout` that "is
+    not written to the scout file", when no scout file exists;
+  - "no row of that table is counted" (`report_format`) beside the validator's comment that
+    members "are counted where they sit";
+  - step 41 names no grouping key for the leftover findings;
+  - "do not check framework code" does not say whether a Next.js package is in scope.
+
+### Codex: `gpt-6-sol` at `high`, stopped by the usage limit
+
+`codex exec` 0.157.1 ran with `-s workspace-write` and network on, from a ChatGPT account.
+`gpt-6.1-sol`, the default in the operator's config, is refused for a ChatGPT account (HTTP 400),
+so the run took `gpt-6-sol`. After about 25 minutes the account hit its usage limit and the turn
+failed with no report.
+
+What ran before the stop:
+- **Discovery, `tsc`, Biome, and the audit** all ran. The skill lint gave 129 findings and the
+  filter kept 58 of 98 files, the same as S′: the lint step is host-neutral.
+- **Codex ran the passes as real sub-agents** (44 collaboration calls). Security, Type Safety and
+  Boundary, and Async and Error ran on all 9 parts, and Modernization and Code Quality on 2 of 9.
+- **Codex split the directories finer than Claude** (`crawler-src`/`crawler-test`,
+  `dashboard-server-a`/`-b`, `db-repositories`/`db-other`): the second reading of step 28.
+- **Its native shell hung on short commands** under the Windows `unelevated` sandbox, and it
+  moved to the context-mode shell. That is the host, not the skill.
+- **Its candidates match S′:** the `embeddedJson` cast, the dropped dispose failure, and a child
+  process with no timeout.
+
+`code-smells/passes/queue.md` in `gt-cx` holds the queue, so the run can resume after the reset.
