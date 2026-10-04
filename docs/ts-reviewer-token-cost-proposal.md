@@ -619,3 +619,15 @@ because `\.` did not match in the trial.
 
 The table holds the 58 FULL classifications except `modernization.md:33`, which §3.1 leaves with
 the pass. After the shared-rule decisions of §3.1, the build owns between 53 and 56 lines.
+
+### 11.1 Fixes after the large-project pair (2026-10-04)
+
+| Fix | Why |
+|---|---|
+| a promise `.catch` whose handler takes no error is its own line in `error-handling.md`, kept with the pass | the pass skipped the lint-owned empty-catch line, and `no-empty` sees only a `catch {}` block: 1 High was lost |
+| the extension check leaves `modernization.md:53` and the lint, and becomes a `note:` | under `nodenext` the compiler reports it as TS2835, and a bundler-resolved package is the config deviation `tsconfig.md` owns. It raised 31–45 false High hits per run |
+| the `no-unnecessary-type-assertion` owner line names `as` beside `!` | the rule reports both, so the title contradicted the snippet |
+| `max-lines-per-function` and `complexity` are off in test files | a test suite is 1 long callback: 59 hits on the large project |
+| no shell heredoc for a run file, in `forbidden_behaviors` and in the pass template | a pass hung about 12 hours on an unbalanced quote |
+
+On the same project the lint now raises 129 findings, down from 233.

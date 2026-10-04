@@ -14,6 +14,7 @@ grep -lE 'catch|throw|Promise\.reject|allSettled|process\.exit|Error|\.message|o
 
 checks:
 - silent failures — an empty catch block, `catch (e) {}`, with no comment explaining it: High, handle the error, rethrow it with `{ cause }`, or comment why it is ignored, lint-owned by `no-empty`
+- silent failures — a promise `.catch` whose handler takes no error, `.catch(() => {})` or `.catch(() => undefined)`, with no comment explaining it: High, handle or rethrow it, or comment why it is dropped
 - silent failures — a `catch` that logs and continues on a path whose caller assumes success: Medium, High when the swallowed error leaves state partly mutated
 - silent failures — `Promise.allSettled()` results read with no check for `status === 'rejected'`: Medium
 - silent failures — fire-and-forget cleanup, `void cleanup()`, whose failure corrupts the next run: Medium

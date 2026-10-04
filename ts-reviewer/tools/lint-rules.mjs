@@ -23,7 +23,6 @@ export const rules = {
       "CallExpression[callee.object.name='JSON'][callee.property.name='parse'] > CallExpression.arguments[callee.object.name='JSON'][callee.property.name='stringify']",
     ),
     ...syntax("module-exports", "MemberExpression[object.name='module'][property.name='exports']"),
-    ...syntax("relative-no-js", "ImportDeclaration[source.value=/^[.](?!.*[.](js|mjs|cjs|json)$)/]"),
     ...syntax("builtin-utility-type", "TSTypeAliasDeclaration[id.name=/^(Awaited|NoInfer)$/]"),
     ...syntax("only-skip", "MemberExpression[object.name=/^(describe|it|test)$/][property.name=/^(only|skip)$/]"),
     ...syntax("export-mutable", "ExportNamedDeclaration > VariableDeclaration[kind=/^(let|var)$/]"),
@@ -86,3 +85,7 @@ export const rules = {
   "no-new-func": "error",
   "@typescript-eslint/no-implied-eval": "error",
 };
+
+// A test suite is 1 long callback by design: length and complexity are checked on the code under test only.
+export const testFiles = ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/tests/**", "**/__tests__/**"];
+export const testOverrides = { "max-lines-per-function": "off", complexity: "off" };

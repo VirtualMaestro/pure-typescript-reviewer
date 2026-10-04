@@ -50,7 +50,8 @@ using handle = openFile('data.txt');
 - redundant accessors — a get and set pair that only reads and writes a private backing field, with no validation, transformation, or side effect: Low, use a plain public field
 - redundant accessors — note: mention the `accessor` keyword only where the class already uses standard decorators that require it
 - object keys typing — an `as keyof` cast after `Object.keys()`: Low, suggest a typed helper
-- module system — `require()` in a `.ts` file, `module.exports`, or a relative import carrying no `.js` extension: High, use ESM and a `.js` extension, lint-owned by `ts/no-require-imports`, `no-restricted-syntax: module-exports, relative-no-js`
+- module system — `require()` in a `.ts` file or `module.exports`: High, use ESM `import` and `export`, lint-owned by `ts/no-require-imports`, `no-restricted-syntax: module-exports`
+- module system — note: a relative import with no `.js` extension is compiler error TS2835 under `nodenext`, and another `moduleResolution` is the config deviation `references/tsconfig.md` owns
 - module system — note: the stack is ESM under `nodenext`, and Node runs the emitted JavaScript
 - module system — note: a relative import naming a `.ts` extension belongs to the type-stripping model, which `target_stack` excludes
 - deprecated utility types — a custom `Awaited<T>` or `NoInfer<T>`: Low, delete it and use the built-in, lint-owned by `no-restricted-syntax: builtin-utility-type`

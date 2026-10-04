@@ -66,6 +66,7 @@ forbidden_behaviors:
 - do not run `npm install` or `npm uninstall` for analysis: use an approved pinned-major `npx -y` command, or record the pre-pass as skipped
 - do not rename a report section, field, severity, confidence, or domain: `report_format` and `domains` hold exact identifiers
 - do not start a wave before every pass of the previous wave is marked `done`, `pending`, or `failed` in the queue
+- do not write a run file through a shell heredoc: an unbalanced quote leaves the shell waiting, so use the file tool or a script file
 - do not read a finding from an agent reply: the `.jsonl` file under `code-smells/passes/` is the record, and a reply holds 1 line
 
 outputs:
@@ -286,6 +287,7 @@ Review these files: [FILE_LIST]
 Context files (read-only, do NOT report issues): [CONTEXT_FILE_LIST]
 Scope mode: [full|uncommitted|branch|commits:N]
 Write every finding as 1 JSONL line to: [OUTPUT_PATH]
+Write that file with your file-writing tool, never a shell heredoc: an unbalanced quote leaves the shell waiting.
 Append 1 last line when every file is reviewed: {"done": true, "findings": N, "files": M}
 Reply with 1 line: the pass id, the findings count, the files count. The file is the result; the reply is not.
 

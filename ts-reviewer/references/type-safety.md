@@ -29,7 +29,7 @@ checks:
 type UserId = string & { readonly __brand: 'UserId' };
 ```
 - non-null assertions — `value!` where `value` can genuinely be `null` or `undefined` at runtime: High
-- non-null assertions — `value!` right after a check that already narrowed it: Low, redundant rather than harmful, drop the `!`, lint-owned by `ts/no-unnecessary-type-assertion`
+- non-null assertions — an unnecessary assertion, `value!` after a check that already narrowed it or `as` to the type the value has: Low, drop it, lint-owned by `ts/no-unnecessary-type-assertion`
 - non-null assertions — `document.getElementById('x')!`: Medium, acceptable in DOM code with known ids, flag it in library or server-side code
 - exhaustiveness — a `switch` on a discriminated union with no `default: assertNever(x)`: High, a new variant of the union raises no compile error
 ```typescript
