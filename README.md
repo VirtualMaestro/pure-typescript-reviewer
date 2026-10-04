@@ -17,7 +17,7 @@ Four modes, one skill:
 
 ## What's New
 
-**3.4.0 — a cheaper scan.** A pinned ESLint + typescript-eslint config now runs inside the scan (1 approval, through `npx`), and the 49 checklist lines it decides by rule leave the AI passes. A default scan runs 5 pass groups instead of 9 domain passes, the async and error group reads only the files that can hold its patterns, and the config and dependency group reads no `.ts` file. The pass model is yours to choose once per project. The report format is unchanged.
+**3.4.0 — a cheaper scan.** A pinned ESLint + typescript-eslint config now runs inside the scan (1 approval, through `npx`), and the 49 checklist lines it decides by rule leave the AI passes. A default scan runs 5 pass groups instead of 9 domain passes, the async and error group reads only the files that can hold its patterns, and the config and dependency group reads no `.ts` file. The pass model is yours to choose once per project. The report format is unchanged. Measured on a 98-file monorepo, the scan spent 8.6% less and finished 10 minutes sooner with the skill lint. On the recall corpus in `fixtures/recall-corpus/`, Sonnet passes halved what the passes cost and kept every High and Highest finding.
 
 **3.3.0 — investigate mode.** Before a fix changes flagged code, the skill now checks whether the pattern is there on purpose: a test that pins it, a commit message that explains it, an ADR that decides it. Deliberate code is left alone and gets a `// Deliberate:` comment citing the evidence, so the next scan does not flag it again. See [Investigate](#investigate--why-is-this-code-this-way).
 
@@ -321,10 +321,10 @@ The test catches a check line that lost its severity, a block the profile does n
 
 ### Scan mode
 
-1. **Discovery** — detects domain flags, maps the project, reads tsconfig.json, detects linter and test runner, and asks once before downloading a missing architecture tool.
-2. **Diagnostics** — runs `tsc --noEmit`, linter, and LSP diagnostics (if available); compiler and linter output is cached under `code-smells/passes/` and reused on a resume of the same commit.
+1. **Discovery** — detects domain flags, maps the project, reads tsconfig.json, detects linter and test runner, asks the pass model once per project, and asks once before downloading the skill lint or a missing architecture tool.
+2. **Diagnostics** — runs `tsc --noEmit`, the project linter, the skill lint, and LSP diagnostics (if available). The skill lint's findings become the pass `lint-skill`; compiler and linter output is cached under `code-smells/passes/` and reused on a resume of the same commit.
 3. **Architecture pre-pass** — when active, writes bounded Knip, graph, metric, co-change, rule, and Mermaid artifacts under `code-smells/`, with project coverage and bounded failure diagnostics.
-4. **Analysis** — specialized passes judge the candidates against the active checklists, running in waves of `--agents` at a time; each pass writes its own `code-smells/passes/<id>.jsonl`, and `passes/queue.md` marks which are done, so a stopped run resumes from the last checkpoint. Tool output is never a finding by itself.
+4. **Analysis** — specialized passes, 1 per group of domains, judge the candidates against the active checklists, skipping the lines the skill lint owns, running in waves of `--agents` at a time; each pass writes its own `code-smells/passes/<id>.jsonl`, and `passes/queue.md` marks which are done, so a stopped run resumes from the last checkpoint. Tool output is never a finding by itself.
 5. **Report** — deduplicates, applies severity boost (scoped modes), consolidates recurring patterns, enforces a noise budget, writes `code-smells/report.md`, and validates its contract before the scan succeeds. Architecture findings appear in a separate `## Architecture Opportunities` section at the end.
 
 Validate a report directly with `node ts-reviewer/tools/validate-report.mjs --repo . --report code-smells/report.md`. It checks headings, counts, finding anchors, architecture fields, and linked artifacts without adding a dependency, and it reads both the scan report and the audit trail a fix run leaves in its place. An **error** is a defect of the report that rewriting it fixes; a **warning** names an outcome of the mechanical pre-pass — a graph with no diagram, say — that the report cannot fix, and warnings do not fail the run.

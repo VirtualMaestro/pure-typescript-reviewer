@@ -1,12 +1,7 @@
 # Proposal — cut what a scan spends: a skill lint, pass groups, file rules, and a scout model
 
 **Audience:** the agent maintaining the `ts-reviewer` skill repository.
-**Status:** steps 1–3 of §8 are done (2026-10-03). The operator answered every §9 question.
-`fixtures/recall-corpus/` is built (`839519d`). The baseline B ran 3 times: 65 of 66 case-runs
-found, every High+ case in every run, and about $4.3–4.7 per run. The main agent takes 34–41% of
-that, a share no lever of §3 touches (`fixtures/recall-corpus/RESULTS.md`). Step 4 is done: the
-build is `3.4.0` on the branch `token-cost-3.4.0` (`326ac5a`), `npm test` passes, and §11 records
-the build decisions. Step 5, the G and S runs, waits for a go-ahead.
+**Status:** complete as `3.4.0`, merged to `master` on 2026-10-04. Steps 1–5 of §8 ran, and `fixtures/recall-corpus/RESULTS.md` holds every series. On the corpus, B cost $4.47 a run. The pass groups cost $3.35, with no case lost. The Sonnet scout cost $2.65, with every High+ case kept. On a 98-file monorepo the skill lint saved 8.6% and 10 minutes, and the corpus, where it cost 6%, is its worst case. §11 and §11.1 record the build decisions and the fixes. Still open: the Sonnet scout on a large project, a JSONL check for sloppy pass output, and the main agent, which takes 45–67% of a small run.
 
 **Decided** (operator, 2026-10-03):
 - **The symptom is the usage limit** (the 5-hour or weekly window), not the main agent's
