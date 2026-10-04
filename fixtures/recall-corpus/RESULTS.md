@@ -197,3 +197,52 @@ finding's title and fix as written. Run directories: `recall-corpus-szrcZp`,
 - **Verdict on this corpus:** the pass groups pay (−25%). The Sonnet scout pays (−21% more). The
   skill lint does not pay on 27 small files: +6% spend, and through the filter it costs case 10.
   Whether it pays on a large project is not measured.
+
+## A large project: G0 against G′, 1 run each (2026-10-04)
+
+The project is a private pnpm monorepo of 98 `.ts` files and about 17.6k lines in 4 packages,
+with Biome on its `recommended` preset. It was cloned to a temp directory, and only the scan ran.
+There is no answer key, so recall is compared between the 2 reports, not scored. The skill is
+`502b391`.
+
+| | G0 (lint declined) | G′ (lint approved) |
+|---|---|---|
+| Passes | 21 (4 groups × 5 directory parts + config) | 21, plus `lint-skill` |
+| Files of the async+error group | 98 | 58 (the filter) |
+| Raw findings | 241 | 344 (233 from the lint) |
+| Report | 98 issues, 23 High | 88 issues, 18 High |
+| API-equivalent, run | $23.63 | **$21.59 (−8.6%)** |
+| API-equivalent, main agent | $4.26 (18%) | $4.17 (19%) |
+| API-equivalent, passes | $19.37 | $17.41 (−10%) |
+| Output tokens | 355k | 311k (−12.5%) |
+| Wall clock | 41 min | 31 min |
+| `/usage`, both runs together | | week +7% (78% → 85%); the session window reset in between |
+
+**Reading:**
+- **On a large project the skill lint pays.** −8.6% spend, −12.5% output, and 10 minutes less.
+  This is the reverse of the corpus, as expected: the passes are now 80% of the run, and the
+  lint takes 49 lines off every one of 21 passes.
+- **The passes, not the main agent, are the target on a large project.** The main agent is 18–19%
+  here, against 45–67% on the corpus. Halving pass cost is what series S showed the Sonnet scout
+  does. On this project that is about $8–9 of $21.6, so the scout is the largest lever for large
+  projects. It is not measured here.
+- **High findings in G0 and not in G′, traced through G′'s raw pass lines:**
+  - **1 is lost to lint ownership.** A promise `.catch(() => undefined)` was flagged by G0 under
+    `error-handling.md:16` (an empty catch block). In G′ that line is lint-owned, so the pass
+    skipped it, and `no-empty` sees only a `catch {}` block, never an empty promise handler.
+    The line is narrower in the lint than in a reader's reading. The fix is a separate line
+    for a promise `.catch` handler that drops the error.
+  - **3 are 1 root.** 3 per-site casts in G0 became 1 finding on the generic helper they all call
+    in G′ (`boundary-validation.md:14`).
+  - **2 look like run variance.** A test helper cast and an inline asserted type: no G′ pass line
+    is near them.
+  - **1 is consolidated.** A module-system High is in G′ as a lint line, folded into a pattern.
+- **Noise both runs share:** 31–44 High "relative import without `.js`" hits in a Next.js package
+  that resolves through its bundler. `modernization.md:53` and its selector assume `nodenext`.
+  Gate both on the governing tsconfig's `moduleResolution`.
+- **Title mismatch:** `@typescript-eslint/no-unnecessary-type-assertion` reports unnecessary
+  `as` too, and its owner line speaks of `!` only. Restrict the owner by `messageId`, or widen
+  the line.
+- **A stray nested pass** from an earlier corpus series hung about 12 hours on a heredoc waiting
+  for input, and the host killed it for low memory. Its file had already been written by a
+  second script, so no result changed. Nothing in the skill notices a pass that stops replying.
