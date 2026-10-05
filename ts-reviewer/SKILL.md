@@ -142,9 +142,9 @@ workflow:
 6. ask once whether to resume or restart when `code-smells/passes/queue.md` exists, and delete `code-smells/passes/` on restart
 7. warn when the `HEAD` in the queue header differs from the current `HEAD` on a resume: the line re-read below catches a stale line
 8. map the project tree in full, whatever the scope mode
-9. read `tsconfig.json` and `references/tsconfig.md`, then audit the config flags
+9. read `tsconfig.json`, and when Config is active read `references/tsconfig.md` and audit the config flags
 10. detect monorepo workspaces in `package.json` and `pnpm-workspace.yaml`, and every further tsconfig
-11. audit the config that governs the files in scope, and name that config in the summary
+11. name the config that governs the files in scope in the summary, and audit it when Config is active
 12. read the linter config: `eslint.config.*`, `.eslintrc.*`, `biome.json`, `deno.json`
 13. read `package.json` for the dependencies and the module type, and verify the TypeScript version, `engines.node`, and `@types/node` against `target_stack`
 14. identify declared entry points from `package.json#exports`, `main`, `bin`, and the `start`, `dev`, and `serve` scripts
@@ -172,7 +172,7 @@ SKILL=<the directory this file was loaded from>
 node "$SKILL/tools/check-passes.mjs" --refs "$SKILL/references" --dir code-smells/passes
 ```
 34. re-read the exact lines in the current file state before a finding enters the report, and settle each severity `check-passes.mjs` prints against its check line
-35. read the callers to verify a data flow a finding rests on, or mark its problem statement with "if <condition>" and cap its severity at Medium
+35. read the callers to verify a data flow a finding rests on, or mark its problem statement with "if <condition>" and cap its severity at Medium, unless its reference states a rule for an untraced source
 36. downgrade a flagged non-High pattern that appears 5+ times across the codebase by 1 level, and report it once as a Recurring Pattern
 37. boost a finding carrying `in_diff: true` by 1 level in a scoped mode, and mark it `High [boosted, was Medium — new code]`
 38. deduplicate the findings on the same file, line, and issue, keeping 1
