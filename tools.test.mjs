@@ -129,8 +129,8 @@ export function compute(input: unknown): number {
 
 | Pattern | Occurrences | Severity treatment |
 |---|---|---|
-| unvalidated casts | 3 | consolidated into the High finding above |
-| bare numeric literals | 5 | left at Medium and reported once |
+| unvalidated casts | 3 | consolidated into the High finding above. Locations: \`src/a.ts:2\` |
+| bare numeric literals | 5 | left at Medium and reported once. Locations: \`src/a.ts:3\`, \`src/a.ts:4\` |
 
 ## Config Issues
 
@@ -312,6 +312,16 @@ test("validate-report rejects report drift before fix mode can parse it", () => 
   assert.match(result.stderr, /missing architecture field: Interface shape/);
   assert.match(result.stderr, /linked artifact does not exist/);
   assert.match(result.stderr, /Total issues says 7/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("validate-report rejects a pattern row that names no sites", () => {
+  const { dir } = newRepo();
+  writeReportFixture(dir);
+  editReport(dir, (report) => report.replace(". Locations: `src/a.ts:2` |", ". Locations remain in the pass files |"));
+  const result = validate(dir);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /pattern row names no Locations/);
   rmSync(dir, { recursive: true, force: true });
 });
 

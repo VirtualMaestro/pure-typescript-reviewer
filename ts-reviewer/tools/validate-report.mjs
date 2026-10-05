@@ -223,6 +223,7 @@ for (const sectionName of fixMode ? [] : ISSUE_SECTIONS) {
   }
 
   let counting = false;
+  let patterns = false;
   let fenced = false;
   for (let index = section.start; index < section.end; index++) {
     if (lines[index].startsWith("```")) { fenced = !fenced; continue; }
@@ -230,6 +231,7 @@ for (const sectionName of fixMode ? [] : ISSUE_SECTIONS) {
     if (/^\|[-:| ]+\|$/.test(lines[index])) {
       const header = cells(lines[index - 1] ?? "");
       counting = isSummaryTable(header);
+      patterns = isPatternTable(header);
       if (!counting && !isPatternTable(header)) {
         fail(index, "table header must carry Category and Location, or Pattern and Occurrences");
       } else if (counting && !SECTION_SEVERITY[sectionName]) {
@@ -239,11 +241,13 @@ for (const sectionName of fixMode ? [] : ISSUE_SECTIONS) {
       continue;
     }
     if (lines[index].startsWith("|") && lines[index].endsWith("|")) {
+      // Fix mode reads the sites of a pattern from its row, so a row pointing elsewhere leaves it none.
+      if (patterns && !/Locations: .*`[^`]+:\d+`/.test(lines[index])) fail(index + 1, "pattern row names no Locations: `path:N`");
       if (!counting) continue;
       const severity = SECTION_SEVERITY[sectionName];
       counts.set(severity, counts.get(severity) + 1);
       issueCount++;
-    } else if (lines[index].trim()) counting = false;
+    } else if (lines[index].trim()) counting = patterns = false;
   }
 }
 

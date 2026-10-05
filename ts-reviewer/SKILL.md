@@ -362,6 +362,9 @@ pass_agent:
 - `--scout <model>` in the request wins for 1 run: every group but `architecture` runs as the default sub-agent on that model, no scout file is written, and no scout question is asked
 - a run with no operator answer writes no scout file and runs every group as the default sub-agent
 - a host with no scout file format runs every group as the default sub-agent
+- start a new agent for every pass, and never send a second pass to an agent that ran one: a reused agent reads each pass with every earlier one in its context
+- close each agent once its `done` line is written
+- start each agent from the `subagent_template` prompt alone, not from a fork of the main agent's context, where the host offers the choice
 
 skill_lint:
 - the config is `tools/eslint.config.mjs` in this skill: ESLint core rules and typescript-eslint rules, pinned by the command below
@@ -385,6 +388,7 @@ report_format:
 - `Total issues` counts the `###` findings, the summary-table rows, and the Architecture Opportunities entries, and the severity breakdown counts the same 3
 - a `Recurring Patterns` row is a pattern rather than an issue: no row of that table is counted, and a member counts only where it also stands as an issue
 - a summary table is read by its `Category` and `Location` columns, and a pattern table by its `Pattern` and `Occurrences` columns
+- every pattern row ends its treatment with `Locations:` and each site as `path:N`: fix mode reads the sites from the row
 - the `Hot path` line is present on a finding whose `hot` is not `no` and whose `fix_cost` is not `none`, and absent on every other finding
 - the `Verdict` line is present on every `###` finding once investigate mode has run, and absent on every finding before it
 ````markdown
@@ -436,7 +440,7 @@ report_format:
 
 | Pattern | Occurrences | Severity treatment |
 |---|---|---|
-| name | N | what happened to its members |
+| name | N | what happened to its members. Locations: `path:N`, `path:N` |
 
 ## Config Issues
 
