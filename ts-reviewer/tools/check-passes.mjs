@@ -5,9 +5,11 @@
 // - repair: a category outside the pass's domains, when the `check` line names 1 of them;
 // - print: a severity that differs from the one its `check` line states;
 // - print: a `done` line that claims fewer files than the queue gave the pass: a pass may read
-//   context files beyond its list, so more is not a gap.
+//   context files beyond its list, so more is not a gap;
+// - repair: a line whose snippet stands elsewhere in the file, when its longest line occurs there
+//   once; print a snippet found nowhere, and a file that does not exist.
 //
-//   node check-passes.mjs --refs <skill>/references --dir code-smells/passes
+//   node check-passes.mjs --refs <skill>/references --dir code-smells/passes [--repo <root>]
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -44,7 +46,27 @@ function parseLine(text) {
   }
 }
 
-export function checkPasses(refsDir, dir) {
+// The site of a finding, in the window `validate-report.mjs` holds: the snippet's own length on
+// either side of the line. A snippet found elsewhere moves the line when its longest line is unique.
+function checkSite(record, root, sources) {
+  const abs = path.join(root, String(record.file));
+  if (!sources.has(abs)) sources.set(abs, existsSync(abs) ? readFileSync(abs, "utf8").split(/\r?\n/).map((l) => l.trim()) : null);
+  const source = sources.get(abs);
+  if (!source) return `site: ${record.file} does not exist`;
+  const snippet = String(record.snippet ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
+  if (!snippet.length) return null;
+  const line = Number(record.line);
+  const window = new Set(source.slice(Math.max(0, line - 1 - snippet.length), line + snippet.length));
+  if (snippet.some((l) => window.has(l))) return null;
+  const anchor = snippet.reduce((a, b) => (b.length > a.length ? b : a));
+  const hits = source.flatMap((l, i) => (l === anchor ? [i + 1] : []));
+  if (anchor.length < 8 || hits.length !== 1) return `site: the snippet of ${record.file}:${line} stands nowhere near it`;
+  record.line = hits[0];
+  return `repaired: ${record.file}:${line} moved to line ${hits[0]}, where its snippet stands`;
+}
+
+export function checkPasses(refsDir, dir, root = path.resolve(dir, "..", "..")) {
+  const sources = new Map();
   const domainOf = readDomains(refsDir);
   const queue = readQueue(dir);
   const refLines = new Map();
@@ -84,6 +106,8 @@ export function checkPasses(refsDir, dir) {
           record.category = checkDomain;
         } else notes.push(`category: ${at} ${JSON.stringify(record.category)} is outside ${id}`);
       }
+      const site = id === "lint-skill" ? null : checkSite(record, root, sources);
+      if (site) notes.push(site.replace(/^(repaired|site): /, `$1: ${at} `));
       if (!record.check) unchecked++;
       else {
         const stated = refLine(refFile, Number(refAt))?.match(SEVERITY)?.[1];
@@ -107,8 +131,8 @@ export function checkPasses(refsDir, dir) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const arg = (name) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : undefined; };
   const [refs, dir] = [arg("--refs"), arg("--dir")];
-  if (!refs || !dir) throw new Error("usage: check-passes.mjs --refs <dir> --dir <passes dir>");
-  const report = checkPasses(refs, dir);
+  if (!refs || !dir) throw new Error("usage: check-passes.mjs --refs <dir> --dir <passes dir> [--repo <root>]");
+  const report = checkPasses(refs, dir, arg("--repo") ?? path.resolve(dir, "..", ".."));
   for (const { id, notes } of report) {
     console.log(id);
     for (const note of notes) console.log(`  ${note}`);

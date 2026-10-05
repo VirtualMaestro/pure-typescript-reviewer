@@ -364,3 +364,67 @@ that passed `validate-report.mjs`.
   shell heredoc" left Codex no write path except the context-mode shell. That is the host.
 - **A `apply_patch` call failed** with "multiple operations target" the same pass file; Codex
   retried and went on.
+
+## The patched skill on the large project, and a domain pick (2026-10-05)
+
+The skill is `3.5.0` on the branch `large-run-fixes` (`bb4ea7a`): the large-run fixes and the
+domain pick. game-trends is at `4ab9ac3` again, in fresh clones `gt-s2` and `gt-cx2`.
+
+### S″: S′ on the patched skill, 1 run
+
+Opus 5.5 main agent, 23 Sonnet passes at `high`, skill lint approved, `--scout sonnet`.
+
+| | S′ | S″ |
+|---|---|---|
+| Files in scope | 98 | 58: `dashboard` (40 files) dropped as a Next.js package |
+| Passes | 21 + lint | 23 + lint |
+| Skill lint findings | 129 | 106 |
+| Analysis-pass findings | 134 | 116, every one with a `check` field |
+| Report | 94 issues, 15 High | 66 issues, 19 High |
+| API-equivalent, run | $11.62 | $11.42 |
+| API-equivalent, main agent | $3.56 | $5.03 |
+| API-equivalent, passes | $8.06 | $6.39 |
+| Validator | first try | second try: 1 snippet off its line, summary tables in Config Issues |
+
+**Reading:**
+- **Both §3.1 sites of the large-run proposal are High now:** `db/src/infrastructure/db.ts:77` as
+  a full entry, with its 5 sibling `sql<T>` reads in a High pattern row, and
+  `crawler/src/crawl/adapters/poki-adapter.ts:152`, merged from Security and Boundary Validation.
+- **The new line also raised 2 test sites,** an untyped `JSON.parse` of a fixture and of a child
+  process's stdout (`crawler/test/adapters.test.ts:126`, `mcp-server/src/stdio.test.ts:44`).
+  Both are true claims nothing checks; a test-scope downgrade is not proposed on 1 run.
+- **`check-passes.mjs` ran and printed 7 severity mismatches in 5 pass files.** No file needed a
+  JSON repair this time. The main agent raised 1 severity to its check line and dropped 5 lines
+  after re-reading the code.
+- **Every pattern row lists its sites,** 10 rows, and the validator accepts them.
+- **Fresh agents: yes.** Every pass ran as a new default sub-agent.
+- **The main agent costs more: $5.03 against $3.56.** Its own repairs are the new cost:
+  - lines past the end of a file (`poki-adapter.ts` has 271 lines; a pass said 308 and 411);
+  - a line off by 5, and a reformatted snippet;
+  - check lines off by a few lines in 1 file.
+  A Sonnet pass misplaces lines, and `check-passes.mjs` does not test the line against the file.
+  That is the next mechanical check: the validator already holds the snippet-window logic.
+- **The passes cost $1.67 less on 40 fewer files,** so the spend per file is close to S′.
+- **Unclear, quoted by the run agent:** "split at the first directory level that leaves every
+  part at <= 20 files" (no single level fits a tree with 23 and 22 file packages; reworded in
+  `b5eaedc`), and High members of a Recurring Pattern (it kept 1 full entry and listed the rest).
+
+### Pick smoke: `--domains security` on the recall corpus, 1 run
+
+Opus main agent, 1 Sonnet pass, skill lint approved. Run directory `recall-corpus-MBbpWn`.
+
+| | S (all 9 domains) | `--domains security` |
+|---|---|---|
+| Passes | 5 groups | `lint-skill` + `security` |
+| Skill lint | declined | 1 finding; 7 outside the active domains dropped |
+| Report categories | 9 domains | Security only |
+| Security cases found | 3/3 | 3/3 (1, 2, 3 of KEY.md, all Highest) |
+| API-equivalent, run | $2.65 | $0.90 |
+
+**Reading:**
+- **The pick works end to end:** `Domains: Security from --domains` in the discovery summary, 1
+  analysis pass, and a report holding the pick only.
+- **2 instructions read wrong under a pick,** fixed in `3269dc7`:
+  - steps 9 and 11 audited the tsconfig flags with Config inactive;
+  - step 35 capped an untraced data flow at Medium, against `security.md`, which reports an
+    untraced sink at its listed severity and states the assumption.

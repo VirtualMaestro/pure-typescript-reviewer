@@ -102,4 +102,11 @@ The design leaves the door open: the files rule is already a column of `pass_gro
 
 ## 6. Build log
 
-Filled in as the steps land.
+- **`bb4ea7a`, 2026-10-05:** §3 in full, as `3.5.0` together with the large-run fixes. `npm test`
+  25 pass; the lint-pass test now also runs `--domains Security` and keeps 1 of 2 owned findings.
+  - **`--no-arch` changed meaning slightly:** it now removes Architecture from whatever set the
+    other rows give, where it gave the 9 default domains before. With no other flag the result is
+    the same.
+  - **An unknown slug stops the run** and lists the valid ones, rather than running a guess.
+- **Runs launched on 2026-10-05:** S″ in `%TEMP%\gt-s2`, Codex in `%TEMP%\gt-cx2`, both at
+  game-trends `4ab9ac3`, and the pick smoke in a fresh recall-corpus directory after S″.

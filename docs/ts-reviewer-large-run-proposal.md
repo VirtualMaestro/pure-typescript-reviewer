@@ -110,6 +110,15 @@ accepted it, and fix mode has no site list then. Require `Locations:` with at le
 `file:line` in every pattern row, as S′ wrote them, and make the validator reject a row
 without one.
 
+### 3.7 `check-passes.mjs` — the site of every finding (added 2026-10-05, after S″)
+
+S″ cost the main agent $5.03 against S′'s $3.56, much of it re-locating Sonnet lines: lines past
+the end of a file, a line off by 5, a reformatted snippet. The tool now holds each finding's site
+in the window `validate-report.mjs` uses (the snippet's length on either side of the line). A
+snippet found elsewhere moves the line when its longest line (>= 8 characters) occurs once in the
+file; otherwise the tool prints the site for step 34. `lint-skill` lines are exempt: the lint
+reads the line from the file.
+
 ## 4. Plan
 
 | Step | Work | Cost |

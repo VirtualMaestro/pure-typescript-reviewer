@@ -774,7 +774,18 @@ test("check-passes repairs the slips of a pass agent and prints what needs a rea
   const joined = [finding({ category: "injection" }), finding({ severity: "medium" }), JSON.stringify({ done: true, findings: 2, files: 3 })].join("\\n");
   writeFileSync(path.join(dir, "type-safety+boundary-validation.jsonl"), joined + "\n");
   writeFileSync(path.join(dir, "security.jsonl"), `{"category":"Security","severity":"medium","title":"t","file":"src/a.ts","line":2,"fix":"match /\\w+/"}\n{"done":true,"findings":1,"files":2}\n`);
-  const out = run(path.join(tools, "check-passes.mjs"), ["--refs", refs, "--dir", "."], dir);
+  // A pass that names line 40 of a 12-line file, for a snippet that stands at line 9.
+  write(dir, "src/b.ts", Array.from({ length: 12 }, (_, i) => (i === 8 ? "  const parsed = JSON.parse(raw) as Settings;" : `const v${i} = ${i};`)).join("\n"));
+  writeFileSync(path.join(dir, "async-patterns+error-handling.jsonl"), [
+    JSON.stringify({ category: "Error Handling", severity: "high", title: "t", file: "src/b.ts", line: 40, snippet: "const parsed = JSON.parse(raw) as Settings;", check: "error-handling.md:1" }),
+    JSON.stringify({ category: "Error Handling", severity: "high", title: "t", file: "src/b.ts", line: 3, snippet: "nothing like this exists", check: "error-handling.md:1" }),
+    JSON.stringify({ done: true, findings: 2, files: 1 }),
+  ].join("\n") + "\n");
+  const out = run(path.join(tools, "check-passes.mjs"), ["--refs", refs, "--dir", ".", "--repo", "."], dir);
+  assert.match(out, /repaired: line 1 src\/b\.ts:40 moved to line 9/);
+  assert.match(out, /site: line 2 the snippet of src\/b\.ts:3 stands nowhere near it/);
+  assert.match(out, /site: line 1 src\/a\.ts does not exist/);
+  assert.equal(JSON.parse(readFileSync(path.join(dir, "async-patterns+error-handling.jsonl"), "utf8").split("\n")[0]).line, 9);
   assert.match(out, /records joined by a literal \\n/);
   assert.match(out, /category "injection" set to Boundary Validation/);
   assert.match(out, new RegExp(`src/a\\.ts:1 is medium, ${check} states High`));
