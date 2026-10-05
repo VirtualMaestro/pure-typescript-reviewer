@@ -1,7 +1,7 @@
 # Proposal — what a large run on 2 hosts showed: severity gaps, pass contract checks, and unclear lines
 
 **Audience:** the agent maintaining the `ts-reviewer` skill repository.
-**Status:** §5 answered, 2026-10-04. Nothing in `ts-reviewer/` changes before the operator's go-ahead.
+**Status:** steps 1–2b built on the branch `large-run-fixes`, 2026-10-05 (`20de693`, `883a507`, and the 2b commit); `npm test` 25 pass. Next: step 3, the S′ rerun.
 The evidence is the last section of `fixtures/recall-corpus/RESULTS.md`: run S′ (Claude Code,
 Sonnet passes) and a partial Codex run, both on the 98-file game-trends monorepo.
 
@@ -114,12 +114,25 @@ without one.
 
 | Step | Work | Cost |
 |---|---|---|
-| 1 | §3.1 and §3.4 as text edits; `npm test` | none |
-| 2 | §3.2 and §3.3: the template line and the tool, with 1 test on the S′ pass files | none |
-| 2b | §3.5 and §3.6: the `pass_agent:` lines, the validator rule, and its test | none |
+| 1 | ~~§3.1 and §3.4 as text edits; `npm test`~~ done, `20de693` | none |
+| 2 | ~~§3.2 and §3.3: the template line and the tool, with 1 test~~ done, `883a507` | none |
+| 2b | ~~§3.5 and §3.6: the `pass_agent:` lines, the validator rule, and its test~~ done | none |
 | 3 | Rerun S′ once on game-trends; the bar is: both §3.1 sites High, 0 hand repairs | ~$12 |
 | 4 | ~~Resume the Codex run~~ done 2026-10-05: it led to §3.5 and §3.6 | |
 | 5 | Rerun Codex on the patched skill; the bar is: 1 agent per pass, and analysis findings within reach of S′ | ChatGPT quota |
+
+## 4.1 Build notes (2026-10-05)
+
+- **§3.1 is 2 new lines**, not a wider line 11: the list on line 11 would pass the 250-character
+  limit. `security.md:33` still grades `JSON.parse(untrusted)` Medium from the deserialization
+  side; step 39 merges a site at the higher severity, so the Boundary line decides.
+- **§3.3 compares only a short count.** A pass reads context files beyond its list, so a `done`
+  line above the queue's count is not a gap. The tool cannot catch a pass that claims files it
+  skimmed, as `security.crawler` did in S′: the count stays a self-report.
+- **`lint-pass.mjs` writes `check` too,** so every pass line carries it, and step 41 groups by it.
+- **No step renumbers.** The tool runs inside step 33, and step 34 settles what it prints.
+- **On the real reports:** S′ passes the new validator, and the Codex report fails on its 7
+  pattern rows with no `Locations:`.
 
 ## 5. Questions for the operator — answered 2026-10-04
 
