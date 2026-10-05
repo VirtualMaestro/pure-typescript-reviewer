@@ -141,7 +141,8 @@ if (!fixMode && !totalMatch) fail(totalLine + 1, "Total issues has an invalid sh
 
 // ── findings ────────────────────────────────────────────────────────────────
 // A table in an issue section is read by its header: the summary table of workflow step 49 carries
-// issues, and the Recurring Patterns table carries patterns whose members are counted where they sit.
+// issues, and the Recurring Patterns table carries patterns: no row counts, and a member counts only
+// where it also stands as an issue.
 const cells = (line) => line.split("|").slice(1, -1).map((cell) => cell.trim());
 const isSummaryTable = (header) => header.includes("Category") && header.includes("Location");
 const isPatternTable = (header) => header.includes("Pattern") && header.includes("Occurrences");

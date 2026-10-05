@@ -40,6 +40,7 @@ scope:
 - anchor each finding to 1 file, and set `in_diff: true` only when that file is in the diff list
 - read as read-only context: `tsconfig.json`, the configs it extends, and `package.json`
 - read as read-only context: the files the scoped files import 1 level deep, and the shared types in `types.ts`, `*.d.ts`, `interfaces/`, `shared/`
+- a workspace package whose `package.json` depends on `next` is out of scope: drop its files and its config from the file list, and name it in the discovery summary
 
 forbidden_behaviors:
 - do not write the report under `.claude/`: it stays visible when no Claude tooling is present
@@ -151,7 +152,7 @@ workflow:
 25. read the reference file named in `domains` before each analysis pass
 26. run the mechanical pre-pass in `references/architecture.md` when Architecture is active, passing the approved tool decision and scoped base
 27. report the discovery summary in the shape of `discovery_summary`, including skipped and clean mechanical results
-28. build the pass list: 1 pass per `pass_groups` row holding an active domain, with the files of its rule, split by directory above 20
+28. build the pass list: 1 pass per `pass_groups` row holding an active domain, with the files of its rule, split at the first directory level that leaves every part at <= 20 files
 29. write `code-smells/passes/queue.md` in the shape of `pass_queue`, in its domain order, and skip a pass marked `done` on a resume
 30. run the pending passes in waves of the wave size, as sub-agents shaped by `subagent_template`, or in the main agent when the wave size is 1
 31. wait for every agent of a wave, then mark each pass `done` when the last line of its file is the `done` line, and `pending` otherwise
@@ -255,6 +256,7 @@ Linter: eslint / biome / none
 Test runner: vitest / jest / mocha / node:test / none
 Hot paths: <N> marked / none: hot rests on loop bodies alone
 Files in scope: <N> .ts files (+ <M> context files)
+Excluded framework packages: <package names, or none>
 Agents per wave: <N>
 Main agent: <model>
 Pass agent: ts-reviewer-scout <model> <effort> / the default sub-agent; Architecture on the main agent
@@ -346,13 +348,13 @@ pass_groups:
 | `architecture` | Architecture | the inputs `references/architecture.md` names |
 
 pass_agent:
-- every group runs as the `ts-reviewer-scout` agent, except `architecture`, which runs as the default sub-agent on the main agent's model
+- every group runs as the `ts-reviewer-scout` agent when the scout file exists, except `architecture`, which runs as the default sub-agent on the main agent's model
 - the scout file is `.claude/agents/ts-reviewer-scout.md` on Claude Code and `.codex/agents/ts-reviewer-scout.toml` on Codex, in the project root
 - ask once for the scout model and effort when the scout file is absent, and write the answer to it
 - offer the models the host's agent call lists, or take the name the operator types when the host lists none
 - the answer "the main agent's model" writes `inherit` on Claude Code and leaves `model` out on Codex
 - pass the scout model, and the effort where the call takes one, in each agent call: a host can load a new agent file late
-- `--scout <model>` in the request wins for 1 run, is not written to the scout file, and skips the scout question
+- `--scout <model>` in the request wins for 1 run: every group but `architecture` runs as the default sub-agent on that model, no scout file is written, and no scout question is asked
 - a run with no operator answer writes no scout file and runs every group as the default sub-agent
 - a host with no scout file format runs every group as the default sub-agent
 
@@ -376,7 +378,7 @@ report_format:
 - the `##` sections of the block below are the whole set, in that order, and a heading outside it is a renamed section
 - Discovery, Pre-existing Issues, Architecture Opportunities, Verification, and Generated artifacts are optional, and the other 5 are always present
 - `Total issues` counts the `###` findings, the summary-table rows, and the Architecture Opportunities entries, and the severity breakdown counts the same 3
-- a `Recurring Patterns` row is a pattern rather than an issue, and no row of that table is counted
+- a `Recurring Patterns` row is a pattern rather than an issue: no row of that table is counted, and a member counts only where it also stands as an issue
 - a summary table is read by its `Category` and `Location` columns, and a pattern table by its `Pattern` and `Occurrences` columns
 - the `Hot path` line is present on a finding whose `hot` is not `no` and whose `fix_cost` is not `none`, and absent on every other finding
 - the `Verdict` line is present on every `###` finding once investigate mode has run, and absent on every finding before it

@@ -9,6 +9,8 @@ read_first:
 
 checks:
 - lying to the compiler — `as T` or a typed annotation on `JSON.parse(...)`, `await res.json()`, `process.env.X`, a CLI argument, a queue or socket message, or file contents: High
+- lying to the compiler — a database result typed by a generic or a cast, `sql<Row>`, `query<Row>(...)`, `rows as Row[]`: High, the row shape is a claim like any other
+- lying to the compiler — a `JSON.parse(...)` result read or traversed as `any` with no check: High, the implicit `any` makes the same claim with no annotation
 - lying to the compiler — note: the unverified boundary is the canonical case: the type is a claim nothing checks
 - lying to the compiler — fix: an unverified boundary, by validating it with a schema or a hand-written guard, then using the type the schema infers
 - lying to the compiler — a fetch wrapper generic, `get<T>(url): Promise<T>`, that casts internally: High, it moves the lie into a helper every caller trusts
