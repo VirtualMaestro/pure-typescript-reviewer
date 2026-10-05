@@ -161,7 +161,7 @@ workflow:
 25. read the reference file named in `domains` before each analysis pass
 26. run the mechanical pre-pass in `references/architecture.md` when Architecture is active, passing the approved tool decision and scoped base
 27. report the discovery summary in the shape of `discovery_summary`, including skipped and clean mechanical results
-28. build the pass list: 1 pass per `pass_groups` row holding an active domain, with the files of its rule, split at the first directory level that leaves every part at <= 20 files
+28. build the pass list: 1 pass per `pass_groups` row holding an active domain, with the files of its rule, splitting a directory above 20 files into its subdirectories until each part holds <= 20
 29. write `code-smells/passes/queue.md` in the shape of `pass_queue`, in its domain order, and skip a pass marked `done` on a resume
 30. run the pending passes in waves of the wave size, as sub-agents shaped by `subagent_template`, or in the main agent when the wave size is 1
 31. wait for every agent of a wave, then mark each pass `done` when the last line of its file is the `done` line, and `pending` otherwise
