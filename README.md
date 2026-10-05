@@ -17,6 +17,8 @@ Four modes, one skill:
 
 ## What's New
 
+**3.5.0 — pick what runs, and sturdier large runs.** `--domains security,boundary-validation` runs only those domains, and `--pick` asks you in a multi-select. The skill lint drops findings outside the pick, and skips itself when no picked domain owns a lint line. A new module, such as a future framework checklist, joins the menu through its `pass_groups` row. From a run on a 98-file monorepo: a database row typed by a generic and an untyped `JSON.parse` now grade High, a Next.js package is out of scope, `tools/check-passes.mjs` repairs and checks the pass files before the merge, every pass gets a fresh agent, and every Recurring Pattern row lists its sites.
+
 **3.4.0 — a cheaper scan.** A pinned ESLint + typescript-eslint config now runs inside the scan (1 approval, through `npx`), and the 49 checklist lines it decides by rule leave the AI passes. A default scan runs 5 pass groups instead of 9 domain passes, the async and error group reads only the files that can hold its patterns, and the config and dependency group reads no `.ts` file. The pass model is yours to choose once per project. The report format is unchanged. Measured on a 98-file monorepo, the scan spent 8.6% less and finished 10 minutes sooner with the skill lint. On the recall corpus in `fixtures/recall-corpus/`, Sonnet passes halved what the passes cost and kept every High and Highest finding.
 
 **3.3.0 — investigate mode.** Before a fix changes flagged code, the skill now checks whether the pattern is there on purpose: a test that pins it, a commit message that explains it, an ADR that decides it. Deliberate code is left alone and gets a `// Deliberate:` comment citing the evidence, so the next scan does not flag it again. See [Investigate](#investigate--why-is-this-code-this-way).
@@ -126,6 +128,8 @@ By default, only the nine core domains run. Use flags to control which domains a
 | `--arch` | Architecture only (shallow modules, coupling, dependency direction, seams) |
 | `--full` | All ten domains |
 | `--no-arch` | The nine core domains — overrides `--arch`, `--full`, and any phrase that would enable architecture |
+| `--domains <slugs>` | Only the named domains, by slug (`security`, `type-safety`, `boundary-validation`, ...) or by pass group (`type-safety+boundary-validation`). `--no-arch` still removes Architecture |
+| `--pick` | Asks which pass groups to run, in a multi-select (a numbered list on Codex). No answer runs the default set |
 
 Examples:
 

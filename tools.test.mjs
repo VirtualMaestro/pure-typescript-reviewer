@@ -726,7 +726,7 @@ test("lint-pass turns owned ESLint messages into pass lines and drops the rest",
   ];
   writeFileSync(path.join(dir, "lint.json"), JSON.stringify(eslint));
   const out = run(path.join(tools, "lint-pass.mjs"), ["--refs", path.join(repoRoot, "ts-reviewer", "references"), "--lint", "lint.json", "--out", "pass.jsonl"], dir);
-  assert.match(out, /2 findings, 2 files, 1 unowned messages dropped, 1 files unparsed/);
+  assert.match(out, /2 findings, 2 files, 1 unowned messages dropped, 0 outside the active domains dropped, 1 files unparsed/);
   const lines = readFileSync(path.join(dir, "pass.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   assert.deepEqual(lines.at(-1), { done: true, findings: 2, files: 2 });
   const [enumLine, evalLine] = lines;
@@ -739,6 +739,11 @@ test("lint-pass turns owned ESLint messages into pass lines and drops the rest",
   assert.equal(evalLine.severity, "highest");
   assert.equal(evalLine.in_diff, false);
   assert.equal(evalLine.fix_cost, "none");
+  // A pick of Security alone keeps the eval finding and drops the Modernization one.
+  const picked = run(path.join(tools, "lint-pass.mjs"), ["--refs", path.join(repoRoot, "ts-reviewer", "references"), "--lint", "lint.json", "--out", "picked.jsonl", "--domains", "Security"], dir);
+  assert.match(picked, /1 findings, 2 files, 1 unowned messages dropped, 1 outside the active domains dropped/);
+  const kept = readFileSync(path.join(dir, "picked.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  assert.deepEqual(kept.filter((l) => !l.done).map((l) => l.category), ["Security"]);
   rmSync(dir, { recursive: true, force: true });
 });
 

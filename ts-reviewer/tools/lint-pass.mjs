@@ -4,7 +4,10 @@
 // the line carries "lint-owned by `<rule>`" or "`<rule>: <id>`", and the finding takes its
 // category from SKILL.md `domains`, and its severity, title, and fix from that line.
 //
-//   node lint-pass.mjs --refs <skill>/references --lint lint-skill.json --out lint-skill.jsonl [--in-diff]
+// With --domains, a message whose owner sits in a domain outside the list is dropped: the report
+// holds the domains the operator picked.
+//
+//   node lint-pass.mjs --refs <skill>/references --lint lint-skill.json --out lint-skill.jsonl [--in-diff] [--domains "Security,Type Safety"]
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -46,10 +49,11 @@ function ownerOf(owners, message) {
   return byId ?? candidates.find((o) => !o.id);
 }
 
-export function lintPass(results, owners, inDiff) {
+export function lintPass(results, owners, inDiff, active = null) {
   const findings = [];
   const seen = new Set();
   let dropped = 0;
+  let inactive = 0;
   const fatal = [];
   for (const result of results) {
     const file = path.relative(process.cwd(), result.filePath).replace(/\\/g, "/");
@@ -61,6 +65,7 @@ export function lintPass(results, owners, inDiff) {
       }
       const owner = ownerOf(owners, message);
       if (!owner) { dropped++; continue; }
+      if (active && !active.has(owner.domain)) { inactive++; continue; }
       const key = `${file}:${message.line}:${owner.file}:${owner.line}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -84,7 +89,7 @@ export function lintPass(results, owners, inDiff) {
       });
     }
   }
-  return { findings, files: results.length, dropped, fatal };
+  return { findings, files: results.length, dropped, inactive, fatal };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -99,10 +104,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exit(1);
   }
   if (!Array.isArray(results)) { console.error(`lint-pass: ${lint} holds no ESLint result array`); process.exit(1); }
-  const { findings, files, dropped, fatal } = lintPass(results, readOwners(refs), process.argv.includes("--in-diff"));
+  const active = arg("--domains") ? new Set(arg("--domains").split(",").map((d) => d.trim()).filter(Boolean)) : null;
+  const { findings, files, dropped, inactive, fatal } = lintPass(results, readOwners(refs), process.argv.includes("--in-diff"), active);
   const lines = findings.map((f) => JSON.stringify(f));
   lines.push(JSON.stringify({ done: true, findings: findings.length, files }));
   writeFileSync(out, lines.join("\n") + "\n");
-  console.log(`lint-skill ${findings.length} findings, ${files} files, ${dropped} unowned messages dropped, ${fatal.length} files unparsed`);
+  console.log(`lint-skill ${findings.length} findings, ${files} files, ${dropped} unowned messages dropped, ${inactive} outside the active domains dropped, ${fatal.length} files unparsed`);
   for (const f of fatal) console.log(`  unparsed: ${f}`);
 }

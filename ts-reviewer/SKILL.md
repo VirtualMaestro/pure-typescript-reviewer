@@ -7,7 +7,8 @@ description: >
   fix issues, fix the report, fix code smells, auto-fix, review and fix,
   clean up code, tech debt, code health, security audit, modernize, review my changes,
   review my PR, review last commit. Architecture review: --arch, --full, review architecture,
-  find refactoring opportunities, full audit. Pure TypeScript 5.9.x, ES2024, Node 24 only.
+  find refactoring opportunities, full audit. Domain pick: --domains, --pick, pick domains,
+  choose domains. Pure TypeScript 5.9.x, ES2024, Node 24 only.
 ---
 
 mode: typescript_code_review
@@ -90,15 +91,23 @@ run_modes:
 | `auto` | review and fix, auto-fix, scan and fix, clean up | scan, then investigate, then fix, then a re-scan |
 
 domain_sets:
-- read the explicit `--arch`, `--full`, and `--no-arch` flags in the request first, then the phrases below, then fall back to the default set
+- read `--domains` and `--pick` first, then the explicit `--arch`, `--full`, and `--no-arch` flags, then the phrases below, then fall back to the default set
 - Architecture is off in a default scan, and loads `references/architecture.md` only when it is active
+- `--domains` takes slugs joined by `,`: a domain name in lowercase with `-` for each space, or a `pass_groups` group id for every domain of the group
+- stop and list the valid slugs when `--domains` names a slug that is neither
+- the `--pick` options are the rows of `pass_groups` in row order, each naming its domains, and the operator picks 1 or more
+- ask the pick as a multi-select in questions of <= 4 options, or as a numbered list read from a reply such as `1,3` on a host with no multi-select
+- a pick with no operator answer runs the default set, and the discovery summary says so
+- a module joins `--domains` and `--pick` through its rows in `domains` and `pass_groups`, with no edit to this block
 
 | Flag or phrase | Active domains |
 |---|---|
 | none | the 9 default domains: Type Safety, Security, Async Patterns, Modernization, Code Quality, Config, Boundary Validation, Error Handling, Dependency Hygiene |
 | `--arch`, review architecture, find refactoring opportunities, deepening review | Architecture only |
 | `--full`, full audit, full review, review everything | all 10 domains |
-| `--no-arch` | the 9 default domains, and it wins over any flag or phrase above |
+| `--domains <slugs>` | the named domains, and every domain of a named group |
+| `--pick`, pick domains, choose domains | the domains of the picked groups |
+| `--no-arch` | the set the rows above give, without Architecture, and it wins over any flag or phrase above |
 
 scope_modes:
 
@@ -140,7 +149,7 @@ workflow:
 13. read `package.json` for the dependencies and the module type, and verify the TypeScript version, `engines.node`, and `@types/node` against `target_stack`
 14. identify declared entry points from `package.json#exports`, `main`, `bin`, and the `start`, `dev`, and `serve` scripts
 15. count the markers `hot_marker` in `references/stack-cost.md` defines across the files in scope, and name the count in the discovery summary
-16. ask once before a pinned-major `npx -y` run: the skill lint always, Knip and dependency-cruiser when Architecture is active and missing locally
+16. ask once before a pinned-major `npx -y` run: the skill lint when it runs, Knip and dependency-cruiser when Architecture is active and missing locally
 17. collect the context files named in `scope:` when the scope mode is scoped
 18. identify feature slices and public entry points when Architecture is active, leaving graph discovery to its mechanical pre-pass
 19. collect machine-readable dependency rules and prose from ADR directories, `ARCHITECTURE.md`, README, and `CONTRIBUTING.md`
@@ -262,6 +271,7 @@ Hot paths: <N> marked / none: hot rests on loop bodies alone
 Files in scope: <N> .ts files (+ <M> context files)
 Excluded framework packages: <package names, or none>
 Agents per wave: <N>
+Domains: <the active domains> from the default set / a flag / --domains / the pick / an unanswered pick
 Main agent: <model>
 Pass agent: ts-reviewer-scout <model> <effort> / the default sub-agent; Architecture on the main agent
 Skill lint: <N> findings / declined / failed: <reason>
@@ -376,10 +386,12 @@ skill_lint:
 - run it after step 21, and write its findings as the pass `lint-skill` with `tools/lint-pass.mjs`, which takes category, severity, and fix from the owning line
 - a declined or failed run marks the pass `lint-skill` failed, and every analysis pass keeps the lint-owned lines
 - the skill lint replaces no project linter: step 21 runs the project config as before
+- leave the pass `lint-skill` out of the queue when no active domain owns a line carrying "lint-owned by": the lint has nothing to decide
+- pass the active domain names to `lint-pass.mjs` with `--domains`: a finding owned by an inactive domain is dropped
 ```bash
 SKILL=<the directory this file was loaded from>
 npx -y -p eslint@10 -p typescript-eslint@8 -p typescript@5.9 eslint -c "$SKILL/tools/eslint.config.mjs" --format json [files] 2>/dev/null > code-smells/passes/lint-skill.json
-node "$SKILL/tools/lint-pass.mjs" --refs "$SKILL/references" --lint code-smells/passes/lint-skill.json --out code-smells/passes/lint-skill.jsonl
+node "$SKILL/tools/lint-pass.mjs" --refs "$SKILL/references" --lint code-smells/passes/lint-skill.json --out code-smells/passes/lint-skill.jsonl --domains "<the active domain names, joined by ,>"
 ```
 
 report_format:
