@@ -740,3 +740,35 @@ test("lint-pass fails on output that is not ESLint JSON", () => {
   assert.match(res.stderr, /not ESLint JSON/);
   rmSync(dir, { recursive: true, force: true });
 });
+
+test("check-passes repairs the slips of a pass agent and prints what needs a reader", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "check-passes-"));
+  const refs = path.join(repoRoot, "ts-reviewer", "references");
+  const boundary = readFileSync(path.join(refs, "boundary-validation.md"), "utf8").split("\n");
+  const dbLine = boundary.findIndex((l) => l.includes("a database result typed by a generic")) + 1;
+  const check = `boundary-validation.md:${dbLine}`;
+  const finding = (extra) => JSON.stringify({ category: "Boundary Validation", severity: "high", title: "t", file: "src/a.ts", line: 1, check, ...extra });
+  writeFileSync(path.join(dir, "queue.md"), [
+    "| Pass | Domains | Files | Status | Attempts | Findings |",
+    "|---|---|---|---|---|---|",
+    "| type-safety+boundary-validation | Type Safety, Boundary Validation | 4 | done | 1 | 3 |",
+    "| security | Security | 2 | done | 1 | 1 |",
+  ].join("\n"));
+  // 1 physical line with literal \n between records, an invalid \w escape, a check group as the
+  // category, a severity below its check line, and a done line short of the queue's file count.
+  const joined = [finding({ category: "injection" }), finding({ severity: "medium" }), JSON.stringify({ done: true, findings: 2, files: 3 })].join("\\n");
+  writeFileSync(path.join(dir, "type-safety+boundary-validation.jsonl"), joined + "\n");
+  writeFileSync(path.join(dir, "security.jsonl"), `{"category":"Security","severity":"medium","title":"t","file":"src/a.ts","line":2,"fix":"match /\\w+/"}\n{"done":true,"findings":1,"files":2}\n`);
+  const out = run(path.join(tools, "check-passes.mjs"), ["--refs", refs, "--dir", "."], dir);
+  assert.match(out, /records joined by a literal \\n/);
+  assert.match(out, /category "injection" set to Boundary Validation/);
+  assert.match(out, new RegExp(`src/a\\.ts:1 is medium, ${check} states High`));
+  assert.match(out, /the done line claims 3, the queue gave 4/);
+  assert.match(out, /line 1 had an invalid escape/);
+  assert.match(out, /no check: 1 of 1 findings/);
+  const repaired = readFileSync(path.join(dir, "type-safety+boundary-validation.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  assert.equal(repaired.length, 3);
+  assert.equal(repaired[0].category, "Boundary Validation");
+  assert.equal(JSON.parse(readFileSync(path.join(dir, "security.jsonl"), "utf8").split("\n")[0]).fix, "match /\\w+/");
+  rmSync(dir, { recursive: true, force: true });
+});

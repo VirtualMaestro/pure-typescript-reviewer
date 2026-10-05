@@ -157,15 +157,19 @@ workflow:
 30. run the pending passes in waves of the wave size, as sub-agents shaped by `subagent_template`, or in the main agent when the wave size is 1
 31. wait for every agent of a wave, then mark each pass `done` when the last line of its file is the `done` line, and `pending` otherwise
 32. mark a pass `failed` after 2 attempts without a `done` line, name it in the discovery summary, and report its domains as not run
-33. read the findings of every `done` pass from its `.jsonl` file before the re-read below
-34. re-read the exact lines in the current file state before a finding enters the report
+33. run `tools/check-passes.mjs` once after the last wave, then read the findings of every `done` pass from its `.jsonl` file
+```bash
+SKILL=<the directory this file was loaded from>
+node "$SKILL/tools/check-passes.mjs" --refs "$SKILL/references" --dir code-smells/passes
+```
+34. re-read the exact lines in the current file state before a finding enters the report, and settle each severity `check-passes.mjs` prints against its check line
 35. read the callers to verify a data flow a finding rests on, or mark its problem statement with "if <condition>" and cap its severity at Medium
 36. downgrade a flagged non-High pattern that appears 5+ times across the codebase by 1 level, and report it once as a Recurring Pattern
 37. boost a finding carrying `in_diff: true` by 1 level in a scoped mode, and mark it `High [boosted, was Medium — new code]`
 38. deduplicate the findings on the same file, line, and issue, keeping 1
 39. merge every finding on the same file and line into 1 entry, attributing each category raised and naming each issue, at the higher severity
 40. consolidate 3+ identical issues into 1 Recurring Pattern entry
-41. keep the top 15 by severity and impact when a single domain produces more than 25 Medium or Low findings, and consolidate the rest into Recurring Pattern entries with their counts
+41. keep the top 15 by severity and impact when a single domain produces more than 25 Medium or Low findings, and consolidate the rest into Recurring Pattern entries with their counts, 1 entry per `check` line
 42. keep a finding whose `hot` is not `no` and whose `fix_cost` is not `none` as a full entry carrying the `Hot path` line, whatever its severity
 43. keep that finding out of every summary table and every Recurring Pattern entry, whatever steps 36, 40, and 41 do with its siblings: fix mode needs its snippet to design the fix
 44. write `code-smells/report.md` in the shape of `report_format`
@@ -300,6 +304,7 @@ Output JSONL, one object per line:
   "title": "Short descriptive title",
   "file": "relative/path.ts",
   "line": 42,
+  "check": "the reference file and line of the checklist line applied, as boundary-validation.md:11",
   "snippet": "3-7 lines of code",
   "problem": "One-sentence explanation",
   "fix": "Concrete recommendation with code example",

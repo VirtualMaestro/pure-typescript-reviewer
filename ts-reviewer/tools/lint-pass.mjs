@@ -79,6 +79,7 @@ export function lintPass(results, owners, inDiff) {
         hot: "unknown",
         fix_cost: "none",
         in_diff: inDiff,
+        check: `${owner.file}:${owner.line}`,
         lint: `${message.ruleId} → references/${owner.file}:${owner.line}`,
       });
     }
