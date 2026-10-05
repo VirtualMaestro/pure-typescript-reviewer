@@ -91,14 +91,35 @@ prompt, not an automatic change: a line may grade lower for a stated reason ("if
 | step 41, no grouping key | group by the check line (`check` from §3.2), then by title |
 | `scope:` "do not check framework code" | a workspace package whose `package.json` depends on `next` is out of scope: its files leave the file list, and the discovery summary names the package |
 
+### 3.5 `pass_agent:` — 1 fresh agent per pass
+
+The Codex run found 23 analysis findings against Sonnet's 134, because Codex reused its
+workers: 3 per wave, each sent the next pass as a new task, up to 11 passes and 200k tokens in 1
+context (RESULTS.md, "Codex, resumed"). Add to `pass_agent:`:
+- start a new agent for every pass, and never send a second pass to an agent that ran one;
+- close the agent once its `done` line is written;
+- start the agent with the `subagent_template` prompt alone, not a fork of the main agent's
+  context, where the host offers the choice.
+
+Check: a Codex rerun shows 1 session file per pass under `~/.codex/sessions/`.
+
+### 3.6 `report_format` and `tools/validate-report.mjs` — locations in every pattern row
+
+Codex wrote Recurring Patterns rows with no sites and pointed to the pass files. The validator
+accepted it, and fix mode has no site list then. Require `Locations:` with at least 1
+`file:line` in every pattern row, as S′ wrote them, and make the validator reject a row
+without one.
+
 ## 4. Plan
 
 | Step | Work | Cost |
 |---|---|---|
 | 1 | §3.1 and §3.4 as text edits; `npm test` | none |
 | 2 | §3.2 and §3.3: the template line and the tool, with 1 test on the S′ pass files | none |
+| 2b | §3.5 and §3.6: the `pass_agent:` lines, the validator rule, and its test | none |
 | 3 | Rerun S′ once on game-trends; the bar is: both §3.1 sites High, 0 hand repairs | ~$12 |
-| 4 | Resume the Codex run after its usage reset (`queue.md` in `gt-cx`), then compare with S′ | ChatGPT quota |
+| 4 | ~~Resume the Codex run~~ done 2026-10-05: it led to §3.5 and §3.6 | |
+| 5 | Rerun Codex on the patched skill; the bar is: 1 agent per pass, and analysis findings within reach of S′ | ChatGPT quota |
 
 ## 5. Questions for the operator — answered 2026-10-04
 

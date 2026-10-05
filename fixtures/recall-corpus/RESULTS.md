@@ -327,3 +327,40 @@ What ran before the stop:
   process with no timeout.
 
 `code-smells/passes/queue.md` in `gt-cx` holds the queue, so the run can resume after the reset.
+
+### Codex, resumed (2026-10-05)
+
+`codex exec resume` continued the same session on `gpt-6-sol` at `high`. It marked 2 pending
+passes `done` from files the interrupted wave had finished, ran the last 8, and wrote a report
+that passed `validate-report.mjs`.
+
+| | S′ (Claude, Sonnet passes) | Codex |
+|---|---|---|
+| Passes | 21 + lint | 37 + lint (9 parts per group) |
+| Skill lint findings | 129 | 129 |
+| Analysis-pass findings | 134 | **23** |
+| Report | 94 issues, 15 High | 27 issues, 8 High |
+| Main agent tokens, resumed half | | 21.7M input (21.3M cached), 59k output |
+
+**Reading:**
+- **The Codex passes found a sixth of what the Sonnet passes found.** Type Safety and Boundary
+  found 5 against 40, and Modernization and Code Quality 6 against 60.
+- **The cause is agent reuse, not the model.** The session files under
+  `~/.codex/sessions/2026/10/` show 6 workers for 37 passes. Codex spawned 3 workers per wave
+  and then sent each one the next pass as a `NEW_TASK` message. 1 worker ran 11 passes in 1
+  context, and its last turn read 200k of a 258k window. It wrote 35k output tokens across
+  those 11 passes, about 3k a pass. Each worker also started with the main agent's whole
+  prompt in its context.
+- **Every worker ran on `gpt-6-sol` at `high`.** The effort was passed on, so a low effort is not
+  the cause.
+- **The Recurring Patterns rows carry no locations.** "locations remain in the pass JSONL files",
+  and `validate-report.mjs` accepts that. Fix mode then has no site list. S′ listed every site.
+- **The framework exclusion was read as a config exclusion.** Codex dropped the `dashboard`
+  module setting as framework build config, and still reviewed every `dashboard` file.
+- **High sites only Codex reported:** an acceptance runner that does not prove its URLs belong
+  to the test branch (`db/src/database-acceptance.ts:37`), and the fixed 10 ms sleep in
+  `runtime-core.test.ts:82` that G′ also had and S′ missed.
+- **The host's native file write hung,** so "Write that file with your file-writing tool, never a
+  shell heredoc" left Codex no write path except the context-mode shell. That is the host.
+- **A `apply_patch` call failed** with "multiple operations target" the same pass file; Codex
+  retried and went on.
