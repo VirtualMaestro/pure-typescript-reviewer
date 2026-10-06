@@ -10,7 +10,7 @@ checks:
 - stack — `lib` not `["ES2024"]` in a Node project: High
 - stack — `module` or `moduleResolution` not `"nodenext"`: High
 - stack — `"type": "module"` missing from `package.json`: High
-- stack — `verbatimModuleSyntax`, `erasableSyntaxOnly`, or `isolatedModules` not `true`: High
+- stack — any 1 of `verbatimModuleSyntax`, `erasableSyntaxOnly`, and `isolatedModules` not `true`: High
 - stack — `allowImportingTsExtensions` or `noEmit` set in the build config: High, `tsc` emits the JavaScript Node runs
 - stack — a `typescript` range admitting a version outside `5.9.x`, `^5.9.0` among them: High, pin the minor with `~5.9.0`
 - stack — an `engines.node` range admitting a major other than 24, `>=24` among them: High, pin the major with `^24.0.0`

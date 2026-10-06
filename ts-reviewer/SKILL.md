@@ -161,7 +161,7 @@ workflow:
 25. read the reference file named in `domains` before each analysis pass
 26. run the mechanical pre-pass in `references/architecture.md` when Architecture is active, passing the approved tool decision and scoped base
 27. report the discovery summary in the shape of `discovery_summary`, including skipped and clean mechanical results
-28. build the pass list: 1 pass per `pass_groups` row holding an active domain, with the files of its rule, splitting a directory above 20 files into its subdirectories until each part holds <= 20
+28. build the pass list: 1 pass per `pass_groups` row holding an active domain, with the files of its rule, splitting a directory above 20 files into its subdirectories until each part holds <= 20, or the directory has none
 29. write `code-smells/passes/plan.json` in the shape of `pass_queue`, in its pass order, then run `tools/pass-prompts.mjs`, which writes the queue and 1 prompt per pass
 ```bash
 SKILL=<the directory this file was loaded from>
@@ -371,7 +371,7 @@ Agents per wave: <N>
 pass_groups:
 - a group runs its active domains in 1 pass: the agent reads each reference, and a finding keeps the category of the domain that raised it
 - the group id joins the domain slugs with `+`
-- every pass reads the shared types as context, whatever the files of its rule
+- every pass reads the shared types as context, whatever the files of its rule, and a shared-types file the pass reviews stays in its file list only
 - a filtered group takes the scoped files that the `workflow:` command of any of its references lists
 - a filtered group takes every scoped file when the skill lint did not run and the project linter enables no `no-floating-promises`
 
@@ -407,6 +407,7 @@ skill_lint:
 - add `--in-diff` to the `lint-pass.mjs` command in a scoped mode: the skill lint reads the scoped files only
 - run it after step 21, and write its findings as the pass `lint-skill` with `tools/lint-pass.mjs`, which takes category, severity, and fix from the owning line
 - a declined or failed run marks the pass `lint-skill` failed, and every analysis pass keeps the lint-owned lines
+- an approval question with no operator answer is a decline
 - the skill lint replaces no project linter: step 21 runs the project config as before
 - leave the pass `lint-skill` out of the queue when no active domain owns a line carrying "lint-owned by": the lint has nothing to decide
 - pass the active domain names to `lint-pass.mjs` with `--domains`: a finding owned by an inactive domain is dropped
