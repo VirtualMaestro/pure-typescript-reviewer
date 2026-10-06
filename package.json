@@ -6,7 +6,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/VirtualMaestro/ts-reviewer"
+    "url": "git+https://github.com/VirtualMaestro/pure-typescript-reviewer.git"
   },
   "bin": {
     "ts-reviewer": "dist/cli.js"
