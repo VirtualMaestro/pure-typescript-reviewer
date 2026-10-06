@@ -116,6 +116,8 @@ The analysis passes run in waves. `--agents N` sets how many run at once (defaul
 
 The scan also runs a skill lint: a pinned ESLint + typescript-eslint config (`ts-reviewer/tools/eslint.config.mjs`), through `npx -y eslint@10 typescript-eslint@8 typescript@5.9`, after 1 approval. The checklist lines it decides by rule are marked `lint-owned` in the references, its findings land in the report like any pass, and the AI passes skip those lines. Declined or failed, the scan falls back to the passes for every line. Your project's own linter still runs as before.
 
+The main agent writes its decisions, not the report: `tools/pass-prompts.mjs` fills the pass prompts from 1 plan, and `tools/build-report.mjs` applies the deduplication, merge, Recurring Pattern, and sorting steps to the pass files and renders the report, which `validate-report.mjs` then checks.
+
 The passes run in groups: Type Safety with Boundary Validation, Async Patterns with Error Handling, Config with Dependency Hygiene, Modernization with Code Quality, and Security and Architecture alone.
 
 #### Domain flags
@@ -269,11 +271,15 @@ cnlp/                                 # the CNL-P format the skill files are wri
 
 ts-reviewer/
 ├── SKILL.md                          # Main skill file — mode routing, workflow orchestration
-├── tools/                            # Mechanical pre-pass and report validator — plain Node, no dependencies
+├── tools/                            # Mechanical steps of the scan — plain Node, no dependencies
 │   ├── discover-projects.mjs         # Finds the TypeScript projects and their source roots
 │   ├── co-change.mjs                 # Git co-change pairs across directory boundaries
 │   ├── run-cruise.mjs                # dependency-cruiser graphs, metrics, and Mermaid diagrams per project
 │   ├── classify-run.mjs              # Reads a tool run by its output, not its exit code
+│   ├── eslint.config.mjs, lint-rules.mjs, lint-pass.mjs # The skill lint and its pass file
+│   ├── pass-prompts.mjs              # Writes the pass queue and 1 filled prompt per pass
+│   ├── check-passes.mjs              # Repairs and checks the pass files before the merge
+│   ├── build-report.mjs              # Applies the merge steps and renders code-smells/report.md
 │   └── validate-report.mjs           # Checks code-smells/report.md against the report contract
 └── references/
     ├── type-safety.md                # Checklist: any, unknown, casts, !, exhaustiveness, branded types

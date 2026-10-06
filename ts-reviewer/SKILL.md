@@ -185,7 +185,11 @@ node "$SKILL/tools/check-passes.mjs" --refs "$SKILL/references" --dir code-smell
 41. keep the top 15 by severity and impact when a single domain produces more than 25 Medium or Low findings, and consolidate the rest into Recurring Pattern entries with their counts, 1 entry per `check` line
 42. keep a finding whose `hot` is not `no` and whose `fix_cost` is not `none` as a full entry carrying the `Hot path` line, whatever its severity
 43. keep that finding out of every summary table and every Recurring Pattern entry, whatever steps 36, 40, and 41 do with its siblings: fix mode needs its snippet to design the fix
-44. write `code-smells/report.md` in the shape of `report_format`
+44. write the decisions of steps 33-35 and the prose to `code-smells/passes/report.json` as `report_build` gives, and run `tools/build-report.mjs`: it applies steps 36-43 and 48-49 and writes the report
+```bash
+SKILL=<the directory this file was loaded from>
+node "$SKILL/tools/build-report.mjs" --dir code-smells/passes --input code-smells/passes/report.json --out code-smells/report.md
+```
 45. validate the report against `report_format` after writing it, and treat a `warning:` line as a pre-pass outcome the report cannot correct
 ```bash
 # SKILL is the directory this file was loaded from.
@@ -496,6 +500,23 @@ report_format:
 
 ---
 ````
+
+report_build:
+- `build-report.mjs` reads every pass file that ends with its `done` line, and the main agent's decisions in `report.json`
+- a finding's key is `<pass id>:<line number in its .jsonl file>`: `drop` removes it, and `edit` replaces the fields it names, a severity or a line after the re-read
+- `add` holds the findings the main agent raised itself, at the config audit or from the compiler, in the shape of a pass line
+- the prose stays the main agent's: the summary, the discovery block, the config note, the verification rows, and an Architecture Opportunities file
+- edit the decisions and rebuild when the validator names an error, rather than editing the report
+```json
+{
+  "project": "<n>", "reviewed": "<date>", "stack": "matches", "scope": "full", "files": 42, "context": 6,
+  "summary": "<2-3 sentences>", "discovery": "<the discovery_summary block>", "config": "<optional note>",
+  "architecture": "<optional path to the Architecture Opportunities entries>",
+  "verification": [["npx tsc --noEmit", "passed"]], "artifacts": [["code-smells/passes/", "1 file per pass"]],
+  "drop": ["security.src:3"], "edit": { "type-safety+boundary-validation:7": { "severity": "high" } },
+  "add": [{ "category": "Config", "severity": "high", "title": "...", "file": "tsconfig.json", "line": 4 }]
+}
+```
 
 invocation:
 - any agent: state the request in plain language, for example `review my TypeScript code` or `fix the report`

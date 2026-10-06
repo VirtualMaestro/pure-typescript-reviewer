@@ -73,6 +73,7 @@ custom_sections:
 - pass_agent
 - skill_lint
 - report_format
+- report_build
 
 enforcement:
 - `node --test cnlp/skill-format.test.js`, over every skill in the directory its `SKILLS_DIR` names

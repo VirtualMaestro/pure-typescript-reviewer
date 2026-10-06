@@ -838,3 +838,39 @@ test("pass-prompts fills the template for every pass and keeps the queue of a re
   assert.match(prompt, /to: code-smells\/passes\/type-safety\+boundary-validation\.src\.jsonl/);
   rmSync(dir, { recursive: true, force: true });
 });
+
+test("build-report applies the decisions and the merge steps, and writes a report the validator accepts", () => {
+  const { dir } = newRepo();
+  write(dir, "src/a.ts", Array.from({ length: 30 }, (_, i) => `export const v${i + 1} = JSON.parse(input${i + 1}) as Row;`).join("\n") + "\n");
+  const at = (line, extra) => ({ category: "Boundary Validation", severity: "high", title: "Cast JSON", file: "src/a.ts", line, snippet: `export const v${line} = JSON.parse(input${line}) as Row;`, problem: "p", fix: "f", auto_fixable: false, hot: "no", fix_cost: "none", in_diff: false, check: "boundary-validation.md:12", ...extra });
+  const lines = (records) => records.map((r) => JSON.stringify(r)).concat(JSON.stringify({ done: true, findings: records.length, files: 1 })).join("\n") + "\n";
+  write(dir, "code-smells/passes/type-safety+boundary-validation.jsonl", lines([
+    at(1), at(2), at(3), // 3 High of 1 check: 1 full entry, 2 sites in the row
+    ...[10, 11, 12, 13, 14].map((l) => at(l, { severity: "medium", title: "Literal", check: "code-quality.md:20", category: "Type Safety" })), // 5 Medium: downgraded row
+    at(20, { severity: "low", title: "Name", check: "code-quality.md:30" }),
+    at(21, { severity: "low", title: "Hot", check: "code-quality.md:31", hot: "yes", fix_cost: "alloc" }),
+  ]));
+  write(dir, "code-smells/passes/security.jsonl", lines([at(20, { category: "Security", severity: "medium", title: "Taint", check: "security.md:33" }), at(25, { severity: "medium", title: "Gone", check: "security.md:40" })]));
+  write(dir, "code-smells/passes/broken.jsonl", JSON.stringify(at(26, { title: "No done line" })) + "\n");
+  const input = {
+    project: "fixture", reviewed: "2026-10-06", stack: "matches", scope: "full", files: 1, context: 0,
+    summary: "The fixture holds 1 of each mechanical case.",
+    drop: ["security:2"], edit: { "security:1": { title: "Taint edited" } },
+    add: [at(28, { category: "Config", severity: "medium", title: "Added by the main agent", check: "tsconfig.md:10" })],
+  };
+  write(dir, "code-smells/passes/report.json", JSON.stringify(input));
+  const out = run(path.join(tools, "build-report.mjs"), ["--dir", "code-smells/passes", "--input", "code-smells/passes/report.json", "--out", "code-smells/report.md"], dir);
+  assert.match(out, /build-report: 4 issues, 2 pattern rows/);
+  const report = readFileSync(path.join(dir, "code-smells/report.md"), "utf8");
+  // The merge of line 20 (Low + Medium Taint) is 1 Medium entry naming both categories.
+  assert.match(report, /### Taint edited \/ Name — Medium\n\n\*\*Category:\*\* Security, Boundary Validation/);
+  assert.match(report, /Hot path:\*\* yes \| \*\*Fix cost:\*\* alloc/);
+  assert.match(report, /High, kept: `src\/a\.ts:1` stands as the full entry.*Locations: `src\/a\.ts:2`, `src\/a\.ts:3` \|/);
+  assert.match(report, /\| Literal \[Type Safety\] \| 5 \| downgraded Medium to Low/);
+  assert.doesNotMatch(report, /Gone|No done line/);
+  assert.match(report, /Added by the main agent — Medium/);
+  assert.match(report, /\*\*Total issues:\*\* 4 \(0 highest, 1 high, 2 medium, 1 low\)/);
+  const result = validate(dir);
+  assert.equal(result.status, 0, result.stderr);
+  rmSync(dir, { recursive: true, force: true });
+});
