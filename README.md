@@ -17,6 +17,8 @@ Four modes, one skill:
 
 ## What's New
 
+**3.6.1 — the agent menu waits.** On Windows, after you picked the install scope, the agent menu took no keys: it confirmed both agents unasked or quit without installing. It now waits for your choice.
+
 **3.6.0 — install once for every project.** `npx ts-reviewer@latest install` asks whether to install globally or into the project, and `update` brings every install to the latest version without questions. Antigravity is no longer a target.
 
 **3.5.0 — pick what runs, and sturdier large runs.** `--domains security,boundary-validation` runs only those domains, and `--pick` asks you in a multi-select. The skill lint drops findings outside the pick, and skips itself when no picked domain owns a lint line. A new module, such as a future framework checklist, joins the menu through its `pass_groups` row. From a run on a 98-file monorepo: a database row typed by a generic and an untyped `JSON.parse` now grade High, a Next.js package is out of scope, `tools/check-passes.mjs` repairs and checks the pass files before the merge, every pass gets a fresh agent, and every Recurring Pattern row lists its sites. The main agent now writes 1 pass plan and its decisions, and 2 tools write the pass prompts and the report: on the recall corpus the main agent spends 35% less, on the monorepo 37% less, and every report validates on the first try.
