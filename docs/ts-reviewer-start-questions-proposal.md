@@ -1,8 +1,8 @@
 # Proposal — ask the operator 3 questions at the start of a scan: domains, skill lint, model
 
 **Audience:** the agent maintaining the `ts-reviewer` skill repository.
-**Status:** refine, 2026-10-06. Nothing under `assets/skills/ts-reviewer/` changes before the
-operator's go-ahead.
+**Status:** approved and built as 3.7.0, 2026-10-06, with every proposed point confirmed by the
+operator.
 
 **Decided** (operator, 2026-10-06):
 - **A scan started by the operator opens with 3 questions, in this order:** which domains, whether
@@ -20,7 +20,7 @@ operator's go-ahead.
   the lint has nothing to decide for the picked domains.
 - **`--defaults`** skips all 3 questions. A flag next to it still wins for its own question.
 
-**Proposed, for the operator to confirm:**
+**Confirmed** (operator, 2026-10-06):
 - **The default set drops Security**, so it matches the menu: the 4 groups of page 1, 8 domains.
   Today it is 9 domains with Security. Architecture is already off by default. Security then runs
   only when picked, named by `--domains security`, or with `--full`.

@@ -7,7 +7,7 @@ description: >
   fix issues, fix the report, fix code smells, auto-fix, review and fix,
   clean up code, tech debt, code health, security audit, modernize, review my changes,
   review my PR, review last commit. Architecture review: --arch, --full, review architecture,
-  find refactoring opportunities, full audit. Domain pick: --domains, --pick, pick domains,
+  find refactoring opportunities, full audit. Domain pick: --domains, --defaults, pick domains,
   choose domains. Pure TypeScript 5.9.x, ES2024, Node 24 only.
 ---
 
@@ -64,7 +64,7 @@ forbidden_behaviors:
 - do not emit the same file and line twice
 - do not boost severity in `full` scope mode: all code is treated alike
 - do not flag a config issue in a scoped mode unless `tsconfig.json` is in the diff
-- do not download and execute a missing analysis tool before the operator approves it once at discovery
+- do not download and execute a missing analysis tool before the operator approves it in `start_questions`
 - do not run `npm install` or `npm uninstall` for analysis: use an approved pinned-major `npx -y` command, or record the pre-pass as skipped
 - do not rename a report section, field, severity, confidence, or domain: `report_format` and `domains` hold exact identifiers
 - do not start a wave before every pass of the previous wave is marked `done`, `pending`, or `failed` in the queue
@@ -91,23 +91,39 @@ run_modes:
 | `auto` | review and fix, auto-fix, scan and fix, clean up | scan, then investigate, then fix, then a re-scan |
 
 domain_sets:
-- read `--domains` and `--pick` first, then the explicit `--arch`, `--full`, and `--no-arch` flags, then the phrases below, then fall back to the default set
-- Architecture is off in a default scan, and loads `references/architecture.md` only when it is active
+- read `--domains` first, then the explicit `--arch`, `--full`, and `--no-arch` flags, then the phrases below, then ask the domain menu of `start_questions`
+- Architecture and Security are off in the default set: both are expensive, and Architecture loads `references/architecture.md` only when it is active
 - `--domains` takes slugs joined by `,`: a domain name in lowercase with `-` for each space, or a `pass_groups` group id for every domain of the group
 - stop and list the valid slugs when `--domains` names a slug that is neither
-- the `--pick` options are the rows of `pass_groups` in row order, each naming its domains, and the operator picks 1 or more
-- ask the pick as a multi-select in questions of <= 4 options, or as a numbered list read from a reply such as `1,3` on a host with no multi-select
-- a pick with no operator answer runs the default set, and the discovery summary says so
-- a module joins `--domains` and `--pick` through its rows in `domains` and `pass_groups`, with no edit to this block
+- a module joins `--domains` and the domain menu through its rows in `domains` and `pass_groups`, with no edit to this block
 
 | Flag or phrase | Active domains |
 |---|---|
-| none | the 9 default domains: Type Safety, Security, Async Patterns, Modernization, Code Quality, Config, Boundary Validation, Error Handling, Dependency Hygiene |
+| `--defaults`, or no answer to the domain menu | the 8 default domains: Type Safety, Boundary Validation, Async Patterns, Error Handling, Config, Dependency Hygiene, Modernization, Code Quality |
+| the domain menu | the domains of the picked groups |
 | `--arch`, review architecture, find refactoring opportunities, deepening review | Architecture only |
 | `--full`, full audit, full review, review everything | all 10 domains |
 | `--domains <slugs>` | the named domains, and every domain of a named group |
-| `--pick`, pick domains, choose domains | the domains of the picked groups |
-| `--no-arch` | the set the rows above give, without Architecture, and it wins over any flag or phrase above |
+| `--no-arch` | the set the rows above give, without Architecture, and the default set when no row above answers |
+
+start_questions:
+- ask the 3 questions below in their order in a `scan` or `auto` run, after the resume ask of step 6 and before discovery
+- skip a question its flag answers, and skip all 3 on a resume: the plan holds the answers
+- `--defaults` answers all 3: the default set, the skill lint run, and the model of the scout file or the default sub-agent
+- a flag next to `--defaults` wins for its own question
+- a question with no operator answer takes the `--defaults` answer, except the skill lint: an unanswered approval is a decline
+- the domain menu has 2 pages, each 1 multi-select question holding the `pass_groups` rows of its page in row order, each option naming its domains
+- tick no option in advance, and say in the page 1 question that a usual scan ticks every option of page 1
+- ask a page as a numbered list read from a reply such as `1,3` on a host with no multi-select
+- ask the domain menu again when the operator ticks no option on either page: an empty scan is never the intent
+- ask the skill lint only when an active domain owns a line carrying "lint-owned by", and approve Knip and dependency-cruiser in the same question when Architecture is active and missing locally
+- ask the pass model as `pass_agent` states
+
+| Question | Answered by |
+|---|---|
+| domains | `--domains`, `--arch`, `--full`, `--no-arch`, and the phrases of `domain_sets` |
+| skill lint | `--lint` runs it, `--no-lint` declines it |
+| pass model | `--scout <model>` |
 
 scope_modes:
 
@@ -135,11 +151,11 @@ domains:
 
 workflow:
 1. identify the run mode from `run_modes`
-2. identify the active domain set from `domain_sets`
+2. identify the active domain set from `domain_sets`, and leave a question it does not answer to `start_questions`
 3. identify the scope mode from `scope_modes`, and default to `full` when the request names none
 4. build the file list with the command in `scope_commands` for that scope mode
 5. ask whether to fall back to `full` when a scoped mode yields 0 files
-6. ask once whether to resume or restart when `code-smells/passes/queue.md` exists, and delete `code-smells/passes/` on restart
+6. ask once whether to resume or restart when `code-smells/passes/queue.md` exists, delete `code-smells/passes/` on restart, then ask `start_questions` unless resuming
 7. warn when the `HEAD` in the queue header differs from the current `HEAD` on a resume: the line re-read below catches a stale line
 8. map the project tree in full, whatever the scope mode
 9. read `tsconfig.json`, and when Config is active read `references/tsconfig.md` and audit the config flags
@@ -149,7 +165,7 @@ workflow:
 13. read `package.json` for the dependencies and the module type, and verify the TypeScript version, `engines.node`, and `@types/node` against `target_stack`
 14. identify declared entry points from `package.json#exports`, `main`, `bin`, and the `start`, `dev`, and `serve` scripts
 15. count the markers `hot_marker` in `references/stack-cost.md` defines across the files in scope, and name the count in the discovery summary
-16. ask once before a pinned-major `npx -y` run: the skill lint when it runs, Knip and dependency-cruiser when Architecture is active and missing locally
+16. run a pinned-major `npx -y` tool only when `start_questions` approved it: the skill lint, Knip, and dependency-cruiser
 17. collect the context files named in `scope:` when the scope mode is scoped
 18. identify feature slices and public entry points when Architecture is active, leaving graph discovery to its mechanical pre-pass
 19. collect machine-readable dependency rules and prose from ADR directories, `ARCHITECTURE.md`, README, and `CONTRIBUTING.md`
@@ -279,7 +295,7 @@ Hot paths: <N> marked / none: hot rests on loop bodies alone
 Files in scope: <N> .ts files (+ <M> context files)
 Excluded framework packages: <package names, or none>
 Agents per wave: <N>
-Domains: <the active domains> from the default set / a flag / --domains / the pick / an unanswered pick
+Domains: <the active domains> from the domain menu / a flag / --domains / --defaults / an unanswered menu / the resumed plan
 Main agent: <model>
 Pass agent: ts-reviewer-scout <model> <effort> / the default sub-agent; Architecture on the main agent
 Skill lint: <N> findings / declined / failed: <reason>
@@ -342,10 +358,11 @@ pass_queue:
 - the pass id is the group id of `pass_groups`, or `<group id>.<directory slug>` for a split pass
 - the pass order is the row order of `pass_groups`, after the row `lint-skill` of `skill_lint`
 - the plan names every pass with its domains and files, and `lint-skill` with its files and no prompt
+- the plan holds the start answers a resume reuses: `lint`, the domains of each pass, and the pass `model` and `effort`, or no `model` for the default sub-agent
 - `pass-prompts.mjs` fills `subagent_template` for each pass, and keeps the status, attempts, and findings of a pass the queue already holds: a resume writes the same plan
 ```json
 {
-  "head": "<sha>", "scope": "full", "agents": 3, "lint": true,
+  "head": "<sha>", "scope": "full", "agents": 3, "lint": true, "model": "sonnet", "effort": "medium",
   "passes": [
     { "id": "security.src-auth", "domains": ["Security"], "files": ["src/auth/a.ts"], "context": ["src/types.ts"] }
   ]
@@ -362,6 +379,8 @@ pass_queue:
 HEAD: <sha>
 Scope: <mode>
 Agents per wave: <N>
+Lint: yes / no
+Pass model: <model> <effort> / default sub-agent
 
 | Pass | Domains | Files | Status | Attempts | Findings |
 |---|---|---|---|---|---|
@@ -376,24 +395,24 @@ pass_groups:
 - a filtered group takes the scoped files that the `workflow:` command of any of its references lists
 - a filtered group takes every scoped file when the skill lint did not run and the project linter enables no `no-floating-promises`
 
-| Group | Domains | Files |
-|---|---|---|
-| `security` | Security | every scoped file |
-| `type-safety+boundary-validation` | Type Safety, Boundary Validation | every scoped file |
-| `async-patterns+error-handling` | Async Patterns, Error Handling | filtered |
-| `config+dependency-hygiene` | Config, Dependency Hygiene | no `.ts` file: the project files each reference reads |
-| `modernization+code-quality` | Modernization, Code Quality | every scoped file |
-| `architecture` | Architecture | the inputs `references/architecture.md` names |
+| Group | Domains | Files | Menu page |
+|---|---|---|---|
+| `security` | Security | every scoped file | 2 |
+| `type-safety+boundary-validation` | Type Safety, Boundary Validation | every scoped file | 1 |
+| `async-patterns+error-handling` | Async Patterns, Error Handling | filtered | 1 |
+| `config+dependency-hygiene` | Config, Dependency Hygiene | no `.ts` file: the project files each reference reads | 1 |
+| `modernization+code-quality` | Modernization, Code Quality | every scoped file | 1 |
+| `architecture` | Architecture | the inputs `references/architecture.md` names | 2 |
 
 pass_agent:
 - every group runs as the `ts-reviewer-scout` agent when the scout file exists, except `architecture`, which runs as the default sub-agent on the main agent's model
 - the scout file is `.claude/agents/ts-reviewer-scout.md` on Claude Code and `.codex/agents/ts-reviewer-scout.toml` on Codex, in the project root
-- ask once for the scout model and effort when the scout file is absent, and write the answer to it
+- ask the scout model and effort on every run, by `start_questions`, offering the model of the scout file first, and write the answer to the scout file
 - offer the models the host's agent call lists, or take the name the operator types when the host lists none
 - the answer "the main agent's model" writes `inherit` on Claude Code and leaves `model` out on Codex
 - pass the scout model, and the effort where the call takes one, in each agent call: a host can load a new agent file late
 - `--scout <model>` in the request wins for 1 run: every group but `architecture` runs as the default sub-agent on that model, no scout file is written, and no scout question is asked
-- a run with no operator answer writes no scout file and runs every group as the default sub-agent
+- a run with no operator answer, or with `--defaults`, keeps the scout file, and runs every group as the default sub-agent when there is none
 - a host with no scout file format runs every group as the default sub-agent
 - start a new agent for every pass, and never send a second pass to an agent that ran one: a reused agent reads each pass with every earlier one in its context
 - close each agent once its `done` line is written
@@ -408,6 +427,7 @@ skill_lint:
 - add `--in-diff` to the `lint-pass.mjs` command in a scoped mode: the skill lint reads the scoped files only
 - run it after step 21, and write its findings as the pass `lint-skill` with `tools/lint-pass.mjs`, which takes category, severity, and fix from the owning line
 - a declined or failed run marks the pass `lint-skill` failed, and every analysis pass keeps the lint-owned lines
+- `start_questions` asks the approval at the start of the run, and `--lint` or `--no-lint` answers it
 - an approval question with no operator answer is a decline
 - the skill lint replaces no project linter: step 21 runs the project config as before
 - leave the pass `lint-skill` out of the queue when no active domain owns a line carrying "lint-owned by": the lint has nothing to decide

@@ -812,7 +812,7 @@ test("check-passes repairs the slips of a pass agent and prints what needs a rea
 test("pass-prompts fills the template for every pass and keeps the queue of a resume", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "pass-prompts-"));
   const plan = {
-    head: "abc123", scope: "full", agents: 3, lint: true,
+    head: "abc123", scope: "full", agents: 3, lint: true, model: "sonnet", effort: "medium",
     passes: [
       { id: "lint-skill", domains: ["Type Safety", "Security"], files: ["src/a.ts", "src/b.ts"] },
       { id: "security", domains: ["Security"], files: ["src/a.ts", "src/b.ts"], context: ["src/types.ts"] },
@@ -826,6 +826,8 @@ test("pass-prompts fills the template for every pass and keeps the queue of a re
   assert.match(out, /3 passes in queue\.md/);
   const queue = readFileSync(path.join(dir, "code-smells/passes/queue.md"), "utf8");
   assert.match(queue, /^HEAD: abc123$/m);
+  assert.match(queue, /^Lint: yes$/m);
+  assert.match(queue, /^Pass model: sonnet medium$/m);
   assert.match(queue, /^\| security \| Security \| 2 \| done \| 1 \| 4 \|$/m);
   assert.match(queue, /^\| lint-skill \| Type Safety, Security \| 2 \| done \| 1 \| 7 \|$/m);
   assert.match(queue, /^\| type-safety\+boundary-validation\.src \| Type Safety, Boundary Validation \| 1 \| pending \| 0 \|  \|$/m);

@@ -17,6 +17,8 @@ Four modes, one skill:
 
 ## What's New
 
+**3.7.0 — 3 questions before a scan.** A scan you start asks, in this order: which domains (2 pages, nothing pre-ticked — page 1 the 4 cheap groups, page 2 Security and Architecture), whether to run the skill lint, and which model runs the passes (every run, your last answer first). A flag answers its own question, a resumed scan asks nothing, and `--defaults` asks nothing at all — for an agent that starts the scan for you. The default set drops Security: 8 domains. `--pick` is gone: the menu now shows without it.
+
 **3.6.1 — the agent menu waits.** On Windows, after you picked the install scope, the agent menu took no keys: it confirmed both agents unasked or quit without installing. It now waits for your choice.
 
 **3.6.0 — install once for every project.** `npx ts-reviewer@latest install` asks whether to install globally or into the project, and `update` brings every install to the latest version without questions. Antigravity is no longer a target.
@@ -31,12 +33,12 @@ Four modes, one skill:
 
 Both are optional: a project with no `@hotpath` markers, no tests, and no history gets today's behaviour plus 1 verdict line per finding.
 
-The review covers nine domains by default, each with its own detailed checklist. Add `--arch` or `--full` to include architecture analysis:
+The review has ten domains, each with its own detailed checklist. A scan asks which to run; the default set, for `--defaults` or no answer, is the eight below without Security and Architecture:
 
 | Domain | Examples | Default |
 |---|---|---|
 | **Type Safety** | `any` abuse, unsafe casts, non-null assertions, `unknown` discipline, missing exhaustive checks | ✓ |
-| **Security** | Injection, SSRF, prototype pollution, ReDoS, path traversal, hardcoded secrets | ✓ |
+| **Security** | Injection, SSRF, prototype pollution, ReDoS, path traversal, hardcoded secrets | menu page 2 / `--full` |
 | **Async Patterns** | Floating promises, race conditions, missing timeouts, unbounded concurrency, `forEach(async...)` | ✓ |
 | **Modernization** | Numeric enums, `\|\|` vs `??`, mutating array methods, `satisfies`, `using` keyword | ✓ |
 | **Code Quality** | Dead code, complexity, duplication, debug artifacts, import-time side effects, testability | ✓ |
@@ -44,7 +46,7 @@ The review covers nine domains by default, each with its own detailed checklist.
 | **Boundary Validation** | `as T` on `JSON.parse`/`fetch`/env, DTO vs domain model separation, contract drift | ✓ |
 | **Error Handling** | Silent failures, throw hygiene, `cause` chaining, failure design at API seams | ✓ |
 | **Dependency Hygiene** | Lockfiles, wildcard versions, `npm audit`, duplicate-purpose and trivial deps | ✓ |
-| **Architecture** | Shallow modules, scattered concepts, tight coupling, dependency direction, layering | `--arch` / `--full` |
+| **Architecture** | Shallow modules, scattered concepts, tight coupling, dependency direction, layering | menu page 2 / `--arch` / `--full` |
 
 ## Installation
 
@@ -127,18 +129,31 @@ The main agent writes its decisions, not the report: `tools/pass-prompts.mjs` fi
 
 The passes run in groups: Type Safety with Boundary Validation, Async Patterns with Error Handling, Config with Dependency Hygiene, Modernization with Code Quality, and Security and Architecture alone.
 
+#### Start questions
+
+A scan or auto run you start asks 3 questions before it reads the project, in this order:
+
+1. **Domains** — a multi-select in 2 pages, with nothing ticked in advance (a numbered list such as `1,3` on a host with no multi-select):
+   - page 1: Type Safety + Boundary Validation, Async Patterns + Error Handling, Config + Dependency Hygiene, Modernization + Code Quality — a usual scan ticks all 4;
+   - page 2: Security, Architecture — the expensive ones.
+2. **Skill lint** — whether to download and run the pinned ESLint config. Asked only when a picked domain has lint-owned lines; Knip and dependency-cruiser are approved in the same question when Architecture is picked and missing locally.
+3. **Pass model** — the model and effort for the analysis passes, your last answer first.
+
+A resumed scan asks none of them: the queue holds the answers. Leaving a question unanswered takes the default, except the skill lint, which an unanswered approval declines.
+
 #### Domain flags
 
-By default, only the nine core domains run. Use flags to control which domains are active:
+A flag answers its question, so the scan does not ask it:
 
-| Flag | What runs |
+| Flag | What it answers |
 |---|---|
-| *(none)* | Type Safety, Security, Async, Modernization, Code Quality, Config, Boundary Validation, Error Handling, Dependency Hygiene |
+| `--defaults` | All 3: the 8 default domains, the skill lint on, the model of the scout file (or the default sub-agent). For an agent that starts the scan for you; another flag next to it still wins for its own question |
+| `--domains <slugs>` | Only the named domains, by slug (`security`, `type-safety`, `boundary-validation`, ...) or by pass group (`type-safety+boundary-validation`). `--no-arch` still removes Architecture |
 | `--arch` | Architecture only (shallow modules, coupling, dependency direction, seams) |
 | `--full` | All ten domains |
-| `--no-arch` | The nine core domains — overrides `--arch`, `--full`, and any phrase that would enable architecture |
-| `--domains <slugs>` | Only the named domains, by slug (`security`, `type-safety`, `boundary-validation`, ...) or by pass group (`type-safety+boundary-validation`). `--no-arch` still removes Architecture |
-| `--pick` | Asks which pass groups to run, in a multi-select (a numbered list on Codex). No answer runs the default set |
+| `--no-arch` | Removes Architecture from the set the other flags give, or runs the default set alone |
+| `--lint` / `--no-lint` | Runs or skips the skill lint |
+| `--scout <model>` | The pass model, for 1 run |
 
 Examples:
 
@@ -338,7 +353,7 @@ The test catches a check line that lost its severity, a block the profile does n
 
 ### Scan mode
 
-1. **Discovery** — detects domain flags, maps the project, reads tsconfig.json, detects linter and test runner, asks the pass model once per project, and asks once before downloading the skill lint or a missing architecture tool.
+1. **Discovery** — detects domain flags, maps the project, reads tsconfig.json, detects linter and test runner, after the 3 start questions: domains, the skill lint and any missing architecture tool, and the pass model.
 2. **Diagnostics** — runs `tsc --noEmit`, the project linter, the skill lint, and LSP diagnostics (if available). The skill lint's findings become the pass `lint-skill`; compiler and linter output is cached under `code-smells/passes/` and reused on a resume of the same commit.
 3. **Architecture pre-pass** — when active, writes bounded Knip, graph, metric, co-change, rule, and Mermaid artifacts under `code-smells/`, with project coverage and bounded failure diagnostics.
 4. **Analysis** — specialized passes, 1 per group of domains, judge the candidates against the active checklists, skipping the lines the skill lint owns, running in waves of `--agents` at a time; each pass writes its own `code-smells/passes/<id>.jsonl`, and `passes/queue.md` marks which are done, so a stopped run resumes from the last checkpoint. Tool output is never a finding by itself.
@@ -375,7 +390,7 @@ Validate a report directly with `node ts-reviewer/tools/validate-report.mjs --re
 
 - **Claude Code users** — `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` in `settings.json` under `env` caps sub-agents for every session on the host. It is independent of `--agents`, which caps one review run and works in every supported agent.
 
-- **Pick the pass model once** — the first scan asks which model and effort the analysis passes use, and writes the answer to `.claude/agents/ts-reviewer-scout.md` (Claude Code: `model`, `effort`) or `.codex/agents/ts-reviewer-scout.toml` (Codex: `model`, `model_reasoning_effort`). A smaller model there, for example Sonnet at `high`, costs less, while the main agent keeps verifying every finding. Delete the file to be asked again, or pass `--scout <model>` for 1 run. Architecture always runs on the main agent's model.
+- **Pick the pass model** — every scan asks which model and effort the analysis passes use, offers your last answer first, and writes the answer to `.claude/agents/ts-reviewer-scout.md` (Claude Code: `model`, `effort`) or `.codex/agents/ts-reviewer-scout.toml` (Codex: `model`, `model_reasoning_effort`). A smaller model there, for example Sonnet at `high`, costs less, while the main agent keeps verifying every finding. Pass `--scout <model>` to skip the question for 1 run. Architecture always runs on the main agent's model.
 
 - **Commit before running fix** — so you can `git diff` to review changes and `git checkout -- .` to revert if needed.
 

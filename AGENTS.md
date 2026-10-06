@@ -102,7 +102,7 @@ skill_impact:
 - a new domain, or a module such as a framework checklist, is named in 3 blocks of `assets/skills/ts-reviewer/SKILL.md`
 - the `domains:` table takes the file path and the focus
 - the `domain_sets:` table takes whether it joins the default set, and the flag that loads it otherwise
-- the `pass_groups:` table takes its group and its files rule, and that row alone puts it in `--domains` and the `--pick` menu
+- the `pass_groups:` table takes its group, its files rule, and its menu page, and that row alone puts it in `--domains` and the domain menu
 - a module that reads files outside `scope:`, such as `.tsx`, lifts that line for its own pass in its files rule
 
 forbidden_behaviors:

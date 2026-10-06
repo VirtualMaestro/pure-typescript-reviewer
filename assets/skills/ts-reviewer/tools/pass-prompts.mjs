@@ -64,7 +64,8 @@ export function passPrompts(plan, root) {
     writeFileSync(path.join(prompts, `${pass.id}.md`), head + filled + "\n");
   }
   writeFileSync(path.join(dir, "queue.md"), [
-    "# Pass queue", "", `HEAD: ${plan.head}`, `Scope: ${plan.scope}`, `Agents per wave: ${plan.agents}`, "",
+    "# Pass queue", "", `HEAD: ${plan.head}`, `Scope: ${plan.scope}`, `Agents per wave: ${plan.agents}`,
+    `Lint: ${plan.lint ? "yes" : "no"}`, `Pass model: ${[plan.model ?? "default sub-agent", plan.effort].filter(Boolean).join(" ")}`, "",
     "| Pass | Domains | Files | Status | Attempts | Findings |", "|---|---|---|---|---|---|", ...rows, "",
   ].join("\n"));
   return rows.length;

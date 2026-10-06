@@ -61,6 +61,7 @@ custom_sections:
 - target_stack
 - run_modes
 - domain_sets
+- start_questions
 - scope_modes
 - domains
 - scope_commands
