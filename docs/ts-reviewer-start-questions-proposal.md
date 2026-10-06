@@ -94,6 +94,30 @@ The plan `code-smells/passes/plan.json` already holds `lint` and the domains of 
 `model` and `effort`. `pass-prompts.mjs` writes them into the queue header next to `Scope:` and
 `Agents per wave:`, so a resume reads all 3 answers from the queue.
 
+### 2.6 A host with no question tool (3.7.1)
+
+Asked by the operator after 3.7.0 was staged: does the flow work on Codex? On Codex in default mode
+there is no question modal: `request_user_input` is gated to Plan mode, and the flag
+`default_mode_request_user_input` that opens it in default mode is under development. 3.7.0 fell
+back to a numbered list per question, which costs 4 chat round trips, each ending the agent's turn.
+
+3.7.1 asks every pending start question in 1 message on such a host:
+- the 2 pages as 1 numbered list, 1..6 in `pass_groups` row order per page, page 1 first;
+- the skill lint as yes or no, when it is asked at all;
+- the pass model, the scout file's model first.
+
+1 reply answers all of them, e.g. `1-4,6; lint yes; sonnet high`. Only a part the reply leaves
+unreadable is asked again. A question tool that takes 1 choice per question gets each page as a
+numbered list in the question text. `codex exec` has no operator to answer: pass `--defaults`.
+
+Codex smoke on the recall corpus (codex-cli 0.160.0, 2026-10-06), driven by `codex exec` and
+`codex exec resume`:
+- prose rules alone gave 1 message, but no numbered list and a ready-made "defaults" answer; a
+  literal message template in `start_questions` fixed both;
+- with the template: the 6 groups numbered, nothing offered in advance; the reply
+  `1,2; lint no; main model` gave 4 domains "from the menu", the lint declined, the main model;
+- `--defaults --no-lint`: no question, the 8 default domains, the default sub-agent.
+
 ## 3. Changes
 
 All under `assets/skills/ts-reviewer/` unless named otherwise.

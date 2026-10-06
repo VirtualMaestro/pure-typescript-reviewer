@@ -4,6 +4,8 @@ An AI skill for deep code review and auto-fix of pure TypeScript codebases. Find
 
 Built for one fixed stack — **TypeScript 5.9.x, ES2024, Node 24** — without any framework-specific checks (no React, Vue, Angular, etc.). Anything below the stack is a finding, anything above it is never recommended.
 
+Supported AI agents: **Claude Code** and **Codex** only. Other agents are not supported by the installer or tested with the skill.
+
 ## What It Does
 
 Four modes, one skill:
@@ -16,6 +18,8 @@ Four modes, one skill:
 | **auto** | Runs scan, investigates, asks you to confirm, fixes everything, deletes the report if clean |
 
 ## What's New
+
+**3.7.1 — 1 message on Codex.** Codex has no question menu outside Plan mode, so the start questions come as 1 chat message with a 1-line answer instead of 4 round trips.
 
 **3.7.0 — 3 questions before a scan.** A scan you start asks, in this order: which domains (2 pages, nothing pre-ticked — page 1 the 4 cheap groups, page 2 Security and Architecture), whether to run the skill lint, and which model runs the passes (every run, your last answer first). A flag answers its own question, a resumed scan asks nothing, and `--defaults` asks nothing at all — for an agent that starts the scan for you. The default set drops Security: 8 domains. `--pick` is gone: the menu now shows without it.
 
@@ -49,6 +53,8 @@ The review has ten domains, each with its own detailed checklist. A scan asks wh
 | **Architecture** | Shallow modules, scattered concepts, tight coupling, dependency direction, layering | menu page 2 / `--arch` / `--full` |
 
 ## Installation
+
+The installer supports 2 AI agents: Claude Code and Codex. Antigravity was dropped in 3.6.0.
 
 ### Install with npx
 
@@ -133,13 +139,15 @@ The passes run in groups: Type Safety with Boundary Validation, Async Patterns w
 
 A scan or auto run you start asks 3 questions before it reads the project, in this order:
 
-1. **Domains** — a multi-select in 2 pages, with nothing ticked in advance (a numbered list such as `1,3` on a host with no multi-select):
+1. **Domains** — a multi-select in 2 pages, with nothing ticked in advance:
    - page 1: Type Safety + Boundary Validation, Async Patterns + Error Handling, Config + Dependency Hygiene, Modernization + Code Quality — a usual scan ticks all 4;
    - page 2: Security, Architecture — the expensive ones.
 2. **Skill lint** — whether to download and run the pinned ESLint config. Asked only when a picked domain has lint-owned lines; Knip and dependency-cruiser are approved in the same question when Architecture is picked and missing locally.
 3. **Pass model** — the model and effort for the analysis passes, your last answer first.
 
 A resumed scan asks none of them: the queue holds the answers. Leaving a question unanswered takes the default, except the skill lint, which an unanswered approval declines.
+
+**On Codex** there is no question menu outside Plan mode, so the scan asks all of them in 1 chat message: the 6 groups as 1 numbered list, then the lint and the model. Answer in 1 line, e.g. `1-4,6; lint yes; sonnet high`. `codex exec` has nobody to answer: pass `--defaults`.
 
 #### Domain flags
 

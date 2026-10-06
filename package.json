@@ -1,6 +1,6 @@
 {
   "name": "ts-reviewer",
-  "version": "3.7.0",
+  "version": "3.7.1",
   "description": "Install the TypeScript Code Reviewer skill for Claude Code or Codex, globally or per project",
   "license": "MIT",
   "type": "module",

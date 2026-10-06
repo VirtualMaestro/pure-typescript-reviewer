@@ -114,7 +114,23 @@ start_questions:
 - a question with no operator answer takes the `--defaults` answer, except the skill lint: an unanswered approval is a decline
 - the domain menu has 2 pages, each 1 multi-select question holding the `pass_groups` rows of its page in row order, each option naming its domains
 - tick no option in advance, and say in the page 1 question that a usual scan ticks every option of page 1
-- ask a page as a numbered list read from a reply such as `1,3` on a host with no multi-select
+- ask every pending start question in 1 message on a host with no question tool, such as Codex in default mode: 1 chat round trip per question ends the agent's turn 4 times
+- write that message in the shape below, with the `pass_groups` rows of page 1 and then page 2, and leave out a line whose question a flag answers
+- offer no ready-made answer such as "defaults" in that message: the operator ticks the groups, as on a menu
+```text
+Before the scan, answer in 1 line, e.g. `1-4; lint yes; sonnet high`.
+Domains (a usual scan picks 1-4; 5 and 6 are expensive):
+  1. Type Safety, Boundary Validation
+  2. Async Patterns, Error Handling
+  3. Config, Dependency Hygiene
+  4. Modernization, Code Quality
+  5. Security
+  6. Architecture
+Skill lint: download and run the pinned ESLint config? yes / no
+Pass model: <the scout file's model and effort> / the main agent's model / another model and effort
+```
+- read every answer from 1 reply such as `1-4,6; lint yes; sonnet high`, and ask again only the part the reply leaves unreadable
+- ask a page as a numbered list in the question text on a host whose question tool takes 1 choice per question
 - ask the domain menu again when the operator ticks no option on either page: an empty scan is never the intent
 - ask the skill lint only when an active domain owns a line carrying "lint-owned by", and approve Knip and dependency-cruiser in the same question when Architecture is active and missing locally
 - ask the pass model as `pass_agent` states
