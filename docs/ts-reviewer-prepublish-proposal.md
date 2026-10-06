@@ -1,8 +1,9 @@
 # Proposal — the 6 open points before the first npm release
 
 **Audience:** the agent maintaining the `ts-reviewer` skill repository.
-**Status:** approved 2026-10-06; built step by step (§4), then measured (§5). The version stays
-`3.5.0`: it is not published yet.
+**Status:** complete, 2026-10-06: merged to `master` and pushed (`17bcef1`), and `3.5.0` is staged on npm
+(stage id `99cc4fe1-5150-4e62-b506-d0e48358d24c`) for the operator to approve. The registry's
+`latest` was `3.1.0`; 3.2.0 to 3.4.0 were never published, so `3.5.0` needs no bump.
 
 **Decided** (operator, 2026-10-06):
 - **Fix all 6 before publishing.**
