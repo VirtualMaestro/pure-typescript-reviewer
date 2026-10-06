@@ -104,4 +104,16 @@ needs a snippet to design the fix, and the row needs the sites.
 
 ## 5. Results
 
-Filled in as the steps land.
+| Step | Commit | Outcome |
+|---|---|---|
+| 1 | `edb5951` | points 1, 2, 4, 5, 6 |
+| 2 | `327e5d0` | `pass-prompts.mjs` |
+| 3 | `e42a9d1` | `build-report.mjs`; built from the raw S″ passes, its report validates first try |
+| 4 | P1 | recall 22/22, High+ 14/14; main agent $1.15 against $1.77 (−35%); run $2.03 against $2.65 |
+| 5 | S‴, S⁗ | main agent $3.10 and $3.18 against $5.03 (−37%); every report validates first try |
+
+The runs led to 3 more commits:
+- `eaf094a` and `68b4370`: 9 lines the run agents read 2 ways, and the joined split;
+- `27e13e7`: 2 builder faults and the lockfile rest pass.
+
+Every bar of §4 is met. RESULTS.md, "Prepublish", holds the figures.

@@ -528,3 +528,32 @@ the merge steps and renders the report from the main agent's decisions
 - **Unclear, quoted by the run agent, all settled in `68b4370`:** the split's loose files, step 34
   against step 35's cap, "reachable" for the LSP, an elided snippet, and `lint-skill` marked `done`
   by hand.
+
+### S⁗: the joined split, 1 run
+
+The skill is `68b4370`, `gt-s4`, the configuration of S‴.
+
+| | S″ | S‴ | S⁗ |
+|---|---|---|---|
+| Passes | 23 + lint | 36 + lint | **16 + lint** (1 of them a `-rest` pass) |
+| API-equivalent, main agent | $5.03 | $3.10 | $3.18 |
+| API-equivalent, passes | $6.39 | $10.21 | $8.41 |
+| API-equivalent, run | $11.42 | $13.31 | $11.60 |
+| Report | 66 issues, 19 High | 57 issues, 16 High | 43 issues, 14 High |
+| Validator | second try | first try | first try |
+
+**Reading:**
+- **The joined split works:** 16 analysis passes of 11 to 20 files, against 36 down to 1 file.
+- **The main agent holds its cut:** $3.18 against S″'s $5.03, −37%.
+- **The passes still cost $2.02 more than S″,** on fewer passes. $0.86 of it is the `-rest` pass
+  over `pnpm-lock.yaml`, 6,280 lines read in full for 6 findings the main agent dropped. A lockfile
+  is now searched and never makes a `-rest` pass (`27e13e7`). The rest is larger parts: a 20-file
+  pass rereads a longer context on every turn. 1 run per configuration cannot separate that from
+  noise.
+- **The builder had 2 faults,** fixed in `27e13e7` and checked by rebuilding S⁗'s report from its
+  own pass files and decisions:
+  - a High pattern took its full entry from the first site in sort order, so `db.ts:77` stood
+    behind a site in `database.test.ts`; the code under test now leads;
+  - the 3-issue entry at `poki-adapter.ts:152` was folded into a pattern row, which kept its site
+    and lost 2 of its issues; a merged entry now stays a full entry, led by its most severe issue.
+  The rebuilt report validates, 53 issues, with both sites as full High entries.
