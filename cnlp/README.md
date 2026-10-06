@@ -24,7 +24,7 @@ Nothing else is scattered at the root.
 | `cnlp.js` | the checker: node builtins only, no dependencies | upstream |
 | `skill-format.test.js` | runs the checker over your skills | upstream, **edited here** |
 | `profiles/skill.md` | the skill profile: generic spine, empty vocabulary | **you** |
-| `profiles/reference.md` | the profile of `ts-reviewer/references/*.md` | **you** |
+| `profiles/reference.md` | the profile of `assets/skills/ts-reviewer/references/*.md` | **you** |
 | `profiles/guide.md` | the profile of `AGENTS.md` | **you** |
 | `quality-rules.md` | a rubric to prune, not a standard | **you** |
 
@@ -39,7 +39,7 @@ The corpus each test walks is named by a constant at the top of that file:
 
 ## Status in this repository
 
-The migration is done: `ts-reviewer/SKILL.md`, all 11 files under `ts-reviewer/references/`,
+The migration is done: `assets/skills/ts-reviewer/SKILL.md`, all 11 files under `assets/skills/ts-reviewer/references/`,
 and `AGENTS.md` are in CNL-P, and `npm test` checks them. The order of work below is the
 one-time procedure that got them there — **to add or change a rule now, read `AGENTS.md` at
 the repository root instead.**
@@ -66,8 +66,8 @@ node --test cnlp/skill-format.test.js
 
 Set `SKILLS_DIR` at the top of that file to where **your** skills live, relative to the
 project root — it names the corpus to check, and it has nothing to do with where you moved
-`cnlp-migrate`. Here it is `.`, since the skill sits at `ts-reviewer/` rather than under a
-`skills/` directory, and an entry counts as a skill when it holds a `SKILL.md`. The check
+`cnlp-migrate`. Here it is `assets/skills`, the layout the installer reads, and an entry
+counts as a skill when it holds a `SKILL.md`. The check
 refuses to run with a clear message when the directory is missing.
 
 **No Node in this repository?** Delete `cnlp/cnlp.js` and `cnlp/skill-format.test.js`, and set

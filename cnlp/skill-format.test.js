@@ -10,13 +10,13 @@ import { bodyIssues, loadProfile, parseBlocks } from './cnlp.js';
 // src/artifacts/cnlp.js and the vocabulary in profiles/skill.md; this file only runs them.
 // No skill is exempt: reference material declares `workflow: - none` with its reason.
 
-const SKILLS_DIR = '.'; // where this repository keeps skills, relative to its root
+const SKILLS_DIR = 'assets/skills'; // where this repository keeps skills, relative to its root
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 if (!existsSync(path.join(repoRoot, SKILLS_DIR))) {
   throw new Error(`SKILLS_DIR "${SKILLS_DIR}" does not exist under ${repoRoot} — set it at the top of this file`);
 }
-// SKILLS_DIR is the repository root here, so an entry is a skill only when it holds a SKILL.md.
+// An entry of SKILLS_DIR is a skill only when it holds a SKILL.md.
 const skills = (await readdir(path.join(repoRoot, SKILLS_DIR)))
   .filter((name) => existsSync(path.join(repoRoot, SKILLS_DIR, name, 'SKILL.md')))
   .sort();
@@ -30,7 +30,7 @@ test('every skill body conforms to profiles/skill.md', async () => {
   }
 });
 
-const REFERENCE_DIR = 'ts-reviewer/references'; // the checklists and protocols a skill loads by path
+const REFERENCE_DIR = 'assets/skills/ts-reviewer/references'; // the checklists and protocols a skill loads by path
 
 const referenceFiles = async () => {
   const dir = path.join(repoRoot, REFERENCE_DIR);

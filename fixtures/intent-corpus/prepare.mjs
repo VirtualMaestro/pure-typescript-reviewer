@@ -18,7 +18,7 @@ const git = (...args) => execFileSync("git", args, { cwd: run, stdio: ["ignore",
 
 const generated = new Set(["node_modules", "dist", "code-smells", ".claude"]); // what a local build leaves in project/
 cpSync(path.join(here, "project"), run, { recursive: true, filter: (source) => !generated.has(path.basename(source)) });
-cpSync(path.join(repoRoot, "ts-reviewer"), path.join(run, ".claude", "skills", "ts-reviewer"), { recursive: true });
+cpSync(path.join(repoRoot, "assets", "skills", "ts-reviewer"), path.join(run, ".claude", "skills", "ts-reviewer"), { recursive: true });
 git("init", "-q");
 git("config", "user.email", "corpus@example.com");
 git("config", "user.name", "intent-corpus");

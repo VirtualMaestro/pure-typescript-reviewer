@@ -17,6 +17,8 @@ Four modes, one skill:
 
 ## What's New
 
+**3.6.0 — install once for every project.** `npx ts-reviewer@latest install` asks whether to install globally or into the project, and `update` brings every install to the latest version without questions. Antigravity is no longer a target.
+
 **3.5.0 — pick what runs, and sturdier large runs.** `--domains security,boundary-validation` runs only those domains, and `--pick` asks you in a multi-select. The skill lint drops findings outside the pick, and skips itself when no picked domain owns a lint line. A new module, such as a future framework checklist, joins the menu through its `pass_groups` row. From a run on a 98-file monorepo: a database row typed by a generic and an untyped `JSON.parse` now grade High, a Next.js package is out of scope, `tools/check-passes.mjs` repairs and checks the pass files before the merge, every pass gets a fresh agent, and every Recurring Pattern row lists its sites. The main agent now writes 1 pass plan and its decisions, and 2 tools write the pass prompts and the report: on the recall corpus the main agent spends 35% less, on the monorepo 37% less, and every report validates on the first try.
 
 **3.4.0 — a cheaper scan.** A pinned ESLint + typescript-eslint config now runs inside the scan (1 approval, through `npx`), and the 49 checklist lines it decides by rule leave the AI passes. A default scan runs 5 pass groups instead of 9 domain passes, the async and error group reads only the files that can hold its patterns, and the config and dependency group reads no `.ts` file. The pass model is yours to choose once per project. The report format is unchanged. Measured on a 98-file monorepo, the scan spent 8.6% less and finished 10 minutes sooner with the skill lint. On the recall corpus in `fixtures/recall-corpus/`, Sonnet passes halved what the passes cost and kept every High and Highest finding.
@@ -46,37 +48,40 @@ The review covers nine domains by default, each with its own detailed checklist.
 
 ### Install with npx
 
-From the root of the project where you want to install the skill:
+```bash
+npx ts-reviewer@latest install
+```
+
+It asks where to install and for which AI agents: Up/Down to move, Space to toggle, Enter to confirm. Pick **Global** once and the skill works in every project you open, with nothing added to the project.
+
+| AI agent | Global | Project |
+|---|---|---|
+| Claude Code | `~/.claude/skills/ts-reviewer/` | `.claude/skills/ts-reviewer/` |
+| Codex | `~/.agents/skills/ts-reviewer/` | `.agents/skills/ts-reviewer/` |
+
+`CLAUDE_CONFIG_DIR` and `CODEX_HOME` move the global targets, as they do for the agents themselves.
 
 ```bash
-npx ts-reviewer
+npx ts-reviewer@latest update      # every install, same place and agents, no questions
+npx ts-reviewer@latest status      # installed version, newer one on npm, changed files
+npx ts-reviewer@latest uninstall
 ```
 
-The installer prints a short summary before installation:
+Keep `@latest`: without it `npx` may run a copy it cached earlier, which installs its own, older version.
 
-```text
-TypeScript Code Reviewer
-Checks: type safety, security, async patterns, boundary validation, error handling, modernization, code quality, tsconfig, dependency hygiene
-Target stack: TypeScript 5.9.x, ES2024, Node 24
+Without a terminal (CI, an AI agent, Git Bash under MinTTY) nothing is asked and flags decide:
+
+```bash
+npx ts-reviewer@latest install --global --agents claude-code,codex --yes
 ```
 
-Then it asks which AI agents to install for. Use Up/Down arrows to move, Space to toggle, and Enter to confirm.
+`--dry-run` prints the plan and changes nothing. Each install records what it wrote in `.ai-tools/ts-reviewer.json` (in the home directory or the project root): `update` uses it, removes files the new version no longer ships, and keeps a file you edited unless you pass `--force`.
 
-Supported targets:
-
-| AI agent | Install path |
-|---|---|
-| Claude Code | `.claude/skills/ts-reviewer/` |
-| Codex | `.agents/skills/ts-reviewer/` |
-| Antigravity | `.agent/skills/ts-reviewer/` |
-
-> **Note on Codex:** project-local skills belong in `.agents/` per the Codex docs; `~/.codex/` is the *global* per-user directory. Codex also reads a project-local `.codex/` implicitly, so installs from older versions of this installer keep working — but `.agents/` is the correct location going forward.
-
-In non-interactive terminals, the installer selects all supported targets.
+> **From 3.5.0 and earlier:** `npx ts-reviewer` with no command now prints help, and Antigravity is no longer a target. A copy an older version put in a project (`.claude/`, `.agents/` or `.agent/skills/ts-reviewer/`) is not tracked: delete it by hand.
 
 ### Manual Install
 
-You can still copy the `ts-reviewer/` folder directly into the skill directory for your AI agent.
+You can still copy the `assets/skills/ts-reviewer/` folder directly into the skill directory for your AI agent.
 
 ## Usage
 
@@ -114,7 +119,7 @@ With Architecture active, the same directory also holds project discovery, Knip,
 
 The analysis passes run in waves. `--agents N` sets how many run at once (default 3; `--agents 1` runs them one at a time in the main agent). Each pass writes its own findings file under `code-smells/passes/`, and the queue in `code-smells/passes/queue.md` tracks which passes are done, so an interrupted scan does not lose finished work.
 
-The scan also runs a skill lint: a pinned ESLint + typescript-eslint config (`ts-reviewer/tools/eslint.config.mjs`), through `npx -y eslint@10 typescript-eslint@8 typescript@5.9`, after 1 approval. The checklist lines it decides by rule are marked `lint-owned` in the references, its findings land in the report like any pass, and the AI passes skip those lines. Declined or failed, the scan falls back to the passes for every line. Your project's own linter still runs as before.
+The scan also runs a skill lint: a pinned ESLint + typescript-eslint config (`assets/skills/ts-reviewer/tools/eslint.config.mjs`), through `npx -y eslint@10 typescript-eslint@8 typescript@5.9`, after 1 approval. The checklist lines it decides by rule are marked `lint-owned` in the references, its findings land in the report like any pass, and the AI passes skip those lines. Declined or failed, the scan falls back to the passes for every line. Your project's own linter still runs as before.
 
 The main agent writes its decisions, not the report: `tools/pass-prompts.mjs` fills the pass prompts from 1 plan, and `tools/build-report.mjs` applies the deduplication, merge, Recurring Pattern, and sorting steps to the pass files and renders the report, which `validate-report.mjs` then checks.
 
@@ -255,21 +260,21 @@ AGENTS.md                             # How to edit the review rules — read be
 CLAUDE.md                             # Pointer to AGENTS.md, picked up automatically by Claude Code
 
 src/                                  # npm/npx installer source
-├── cli.ts                            # CLI entrypoint and provider prompt
-├── prompt.ts                         # raw-mode keyboard multi-select
-└── paths.ts                          # target directories and skill asset loading
+├── cli.ts                            # CLI entrypoint: install, update, status, uninstall
+├── tool.ts                           # Tool name and version, read from package.json
+└── installer/                        # Copied from ts-ai-tool-template: fix it there, then copy the folder over
 
 cnlp/                                 # the CNL-P format the skill files are written in
 ├── cnlp-format.md                    # the standard: forms, line rules, lexicon
 ├── cnlp.js                           # the checker — Node builtins only, no dependencies
 ├── skill-format.test.js              # the conformance test, run by `npm test`
 └── profiles/                         # what each kind of document may contain
-    ├── skill.md                      #   → ts-reviewer/SKILL.md
-    ├── reference.md                  #   → ts-reviewer/references/*.md
+    ├── skill.md                      #   → assets/skills/ts-reviewer/SKILL.md
+    ├── reference.md                  #   → assets/skills/ts-reviewer/references/*.md
     ├── guide.md                      #   → AGENTS.md
     └── profile.md                    #   → the profiles themselves
 
-ts-reviewer/
+assets/skills/ts-reviewer/            # What the installer copies
 ├── SKILL.md                          # Main skill file — mode routing, workflow orchestration
 ├── tools/                            # Mechanical steps of the scan — plain Node, no dependencies
 │   ├── discover-projects.mjs         # Finds the TypeScript projects and their source roots

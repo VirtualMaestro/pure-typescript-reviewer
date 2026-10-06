@@ -1,14 +1,14 @@
 // Self-check for the architecture pre-pass scripts. Builds both fixtures itself, asserts the gates.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifyRun } from "./ts-reviewer/tools/classify-run.mjs";
+import { classifyRun } from "./assets/skills/ts-reviewer/tools/classify-run.mjs";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 const repoRoot = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
-const tools = path.join(repoRoot, "ts-reviewer", "tools");
+const tools = path.join(repoRoot, "assets", "skills", "ts-reviewer", "tools");
 const CO_CHANGE = path.join(tools, "co-change.mjs");
 const DISCOVER = path.join(tools, "discover-projects.mjs");
 const RUN_CRUISE = path.join(tools, "run-cruise.mjs");
@@ -459,7 +459,7 @@ test("validate-report reads the audit trail a fix run leaves, and holds its coun
 
 test("the stack-free algorithm files name no stack", () => {
   for (const file of ["fix-design.md", "investigate.md"]) {
-    const raw = readFileSync(path.join(repoRoot, "ts-reviewer", "references", file), "utf8");
+    const raw = readFileSync(path.join(repoRoot, "assets", "skills", "ts-reviewer", "references", file), "utf8");
     assert.doesNotMatch(raw, /typescript|javascript|\bnode\b|\bv8\b|\btsc\b|\bnpm\b|\.ts\b|jsdoc|eslint|vitest/i, file);
   }
 });
@@ -692,9 +692,9 @@ test("configs resolving the same file set collapse to one, and a repository-wide
 });
 
 test("every lint-owned reference line names a rule of the skill lint, and every rule message has 1 owner", async () => {
-  const { readOwners } = await import("./ts-reviewer/tools/lint-pass.mjs");
-  const { rules } = await import("./ts-reviewer/tools/lint-rules.mjs");
-  const owners = readOwners(path.join(repoRoot, "ts-reviewer", "references"));
+  const { readOwners } = await import("./assets/skills/ts-reviewer/tools/lint-pass.mjs");
+  const { rules } = await import("./assets/skills/ts-reviewer/tools/lint-rules.mjs");
+  const owners = readOwners(path.join(repoRoot, "assets", "skills", "ts-reviewer", "references"));
   assert.ok(owners.length > 0);
   const syntaxIds = new Set(rules["no-restricted-syntax"].slice(1).map((s) => s.message));
   for (const o of owners) {
@@ -725,7 +725,7 @@ test("lint-pass turns owned ESLint messages into pass lines and drops the rest",
     { filePath: path.join(dir, "src", "b.ts"), messages: [{ ruleId: null, fatal: true, message: "Parsing error: not in the project", line: 1 }] },
   ];
   writeFileSync(path.join(dir, "lint.json"), JSON.stringify(eslint));
-  const out = run(path.join(tools, "lint-pass.mjs"), ["--refs", path.join(repoRoot, "ts-reviewer", "references"), "--lint", "lint.json", "--out", "pass.jsonl"], dir);
+  const out = run(path.join(tools, "lint-pass.mjs"), ["--refs", path.join(repoRoot, "assets", "skills", "ts-reviewer", "references"), "--lint", "lint.json", "--out", "pass.jsonl"], dir);
   assert.match(out, /2 findings, 2 files, 1 unowned messages dropped, 0 outside the active domains dropped, 1 files unparsed/);
   const lines = readFileSync(path.join(dir, "pass.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   assert.deepEqual(lines.at(-1), { done: true, findings: 2, files: 2 });
@@ -740,7 +740,7 @@ test("lint-pass turns owned ESLint messages into pass lines and drops the rest",
   assert.equal(evalLine.in_diff, false);
   assert.equal(evalLine.fix_cost, "none");
   // A pick of Security alone keeps the eval finding and drops the Modernization one.
-  const picked = run(path.join(tools, "lint-pass.mjs"), ["--refs", path.join(repoRoot, "ts-reviewer", "references"), "--lint", "lint.json", "--out", "picked.jsonl", "--domains", "Security"], dir);
+  const picked = run(path.join(tools, "lint-pass.mjs"), ["--refs", path.join(repoRoot, "assets", "skills", "ts-reviewer", "references"), "--lint", "lint.json", "--out", "picked.jsonl", "--domains", "Security"], dir);
   assert.match(picked, /1 findings, 2 files, 1 unowned messages dropped, 1 outside the active domains dropped/);
   const kept = readFileSync(path.join(dir, "picked.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   assert.deepEqual(kept.filter((l) => !l.done).map((l) => l.category), ["Security"]);
@@ -750,7 +750,7 @@ test("lint-pass turns owned ESLint messages into pass lines and drops the rest",
 test("lint-pass fails on output that is not ESLint JSON", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "lint-pass-"));
   writeFileSync(path.join(dir, "lint.json"), "npm notice\n");
-  const res = spawnSync(process.execPath, [path.join(tools, "lint-pass.mjs"), "--refs", path.join(repoRoot, "ts-reviewer", "references"), "--lint", "lint.json", "--out", "pass.jsonl"], { cwd: dir, encoding: "utf8" });
+  const res = spawnSync(process.execPath, [path.join(tools, "lint-pass.mjs"), "--refs", path.join(repoRoot, "assets", "skills", "ts-reviewer", "references"), "--lint", "lint.json", "--out", "pass.jsonl"], { cwd: dir, encoding: "utf8" });
   assert.equal(res.status, 1);
   assert.match(res.stderr, /not ESLint JSON/);
   rmSync(dir, { recursive: true, force: true });
@@ -758,7 +758,7 @@ test("lint-pass fails on output that is not ESLint JSON", () => {
 
 test("check-passes repairs the slips of a pass agent and prints what needs a reader", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "check-passes-"));
-  const refs = path.join(repoRoot, "ts-reviewer", "references");
+  const refs = path.join(repoRoot, "assets", "skills", "ts-reviewer", "references");
   const boundary = readFileSync(path.join(refs, "boundary-validation.md"), "utf8").split("\n");
   const dbLine = boundary.findIndex((l) => l.includes("a database result typed by a generic")) + 1;
   const check = `boundary-validation.md:${dbLine}`;

@@ -1,14 +1,14 @@
 purpose:
 - state how a review rule is added, changed, or removed in this repository
-- read it before editing anything under `ts-reviewer/` or `cnlp/`, because those files are written in CNL-P and a check enforces the format
+- read it before editing anything under `assets/skills/ts-reviewer/` or `cnlp/`, because those files are written in CNL-P and a check enforces the format
 
 file_map:
 
 | File | What it holds | Who owns it |
 |---|---|---|
-| `ts-reviewer/references/*.md` | the review rules themselves, 1 file per domain | you |
-| `ts-reviewer/SKILL.md` | the review protocol: modes, scope, workflow, report shape | you |
-| `ts-reviewer/tools/*.mjs` | the mechanical pre-pass and report validator: plain Node, no CNL-P, no dependencies | you |
+| `assets/skills/ts-reviewer/references/*.md` | the review rules themselves, 1 file per domain | you |
+| `assets/skills/ts-reviewer/SKILL.md` | the review protocol: modes, scope, workflow, report shape | you |
+| `assets/skills/ts-reviewer/tools/*.mjs` | the mechanical pre-pass and report validator: plain Node, no CNL-P, no dependencies | you |
 | `tools.test.mjs` | the self-check for the pre-pass and report validator, run by `npm test` with the format check | you |
 | `cnlp/profiles/reference.md` | which blocks a `references/` file may use, in which order, in which form | you |
 | `cnlp/profiles/skill.md` | the same, for `SKILL.md` | you |
@@ -48,7 +48,7 @@ workflow:
 4. write the line in the shape `check_line_form` gives, reusing an existing group name where one fits
 5. pick the severity from `severity_scale`, and take the criteria there rather than the feel of the pattern
 6. read `line_rules` before the line is final: the limit, the numbers, and the words are all checked
-7. name a new domain in `ts-reviewer/SKILL.md` as `skill_impact` describes, since a file nothing points at is never loaded
+7. name a new domain in `assets/skills/ts-reviewer/SKILL.md` as `skill_impact` describes, since a file nothing points at is never loaded
 8. edit `cnlp/profiles/reference.md` first when the content fits no declared block, and add the block name there before the text
 9. run the command in `verification`, and read the file and line it names
 
@@ -99,7 +99,7 @@ line_rules:
 - a fenced code block is exempt from every rule above, and sits inside a `checks:` or `workflow:` block attached to the line it belongs to
 
 skill_impact:
-- a new domain, or a module such as a framework checklist, is named in 3 blocks of `ts-reviewer/SKILL.md`
+- a new domain, or a module such as a framework checklist, is named in 3 blocks of `assets/skills/ts-reviewer/SKILL.md`
 - the `domains:` table takes the file path and the focus
 - the `domain_sets:` table takes whether it joins the default set, and the flag that loads it otherwise
 - the `pass_groups:` table takes its group and its files rule, and that row alone puts it in `--domains` and the `--pick` menu
@@ -110,7 +110,7 @@ forbidden_behaviors:
 - do not restate a fact another file already states: put the owner in `scope:` instead
 - do not invent a severity outside the 4 in `severity_scale`
 - do not add a block `cnlp/profiles/reference.md` does not declare: edit the profile first
-- do not change the frontmatter of `ts-reviewer/SKILL.md` beyond the modes and trigger phrases of `description`: the runtime parses `name` and `description` for discovery and routing
+- do not change the frontmatter of `assets/skills/ts-reviewer/SKILL.md` beyond the modes and trigger phrases of `description`: the runtime parses `name` and `description` for discovery and routing
 - do not edit `cnlp/cnlp-format.md` or `cnlp/cnlp.js`: they are upstream, and a local edit is lost on the next unpack
 - do not name a language, a runtime, or a tool in `references/fix-design.md` or `references/investigate.md`: `tools.test.mjs` holds both stack-free
 

@@ -1,7 +1,7 @@
 {
   "name": "ts-reviewer",
-  "version": "3.5.0",
-  "description": "Install the TypeScript Code Reviewer skill for Claude Code, Codex, or Antigravity",
+  "version": "3.6.0",
+  "description": "Install the TypeScript Code Reviewer skill for Claude Code or Codex, globally or per project",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -13,23 +13,22 @@
   },
   "files": [
     "dist/**",
-    "ts-reviewer/**"
+    "assets/**"
   ],
   "engines": {
     "node": "^24.0.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "prepublishOnly": "npm run build && npm test",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run typecheck && node --test cnlp/skill-format.test.js tools.test.mjs",
-    "dev": "npm run build && node --enable-source-maps dist/cli.js"
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm test && npm run build",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "npm run typecheck && node --test cnlp/skill-format.test.js tools.test.mjs test/install.test.ts",
+    "dev": "node src/cli.ts"
   },
   "keywords": [
     "typescript",
     "code-review",
     "codex",
-    "antigravity",
     "claude-code",
     "skill",
     "ts-reviewer"

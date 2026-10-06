@@ -1,9 +1,9 @@
 # CLAUDE.md
 
-This repository ships `ts-reviewer`, a TypeScript code-review skill: `ts-reviewer/SKILL.md`
-is the protocol, and `ts-reviewer/references/*.md` are the review rules it loads by path.
+This repository ships `ts-reviewer`, a TypeScript code-review skill: `assets/skills/ts-reviewer/SKILL.md`
+is the protocol, and `assets/skills/ts-reviewer/references/*.md` are the review rules it loads by path.
 
-**Read `AGENTS.md` before editing anything under `ts-reviewer/` or `cnlp/`.**
+**Read `AGENTS.md` before editing anything under `assets/skills/ts-reviewer/` or `cnlp/`.**
 
 Those files are written in CNL-P, a structured format an agent reads as executable
 instructions, and `npm test` fails on a violation. `AGENTS.md` holds the shape of a check

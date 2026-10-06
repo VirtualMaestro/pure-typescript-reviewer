@@ -1,71 +1,35 @@
 #!/usr/bin/env node
+import { INSTALLER_COMMANDS, INSTALLER_HELP, runInstallerCommand } from "./installer/index.ts";
+import { COMMANDS, DESCRIPTION, TOOL } from "./tool.ts";
 
-import { scaffoldTsReviewerSkill } from "./index.js";
-import { multiSelect } from "./prompt.js";
-import { AI_PROVIDERS, skillTargetDir, type AiProvider } from "./paths.js";
+const HELP = `${TOOL.name} ${TOOL.version}: ${DESCRIPTION}
 
-const SKILL_NAME = "ts-reviewer";
-const TARGET_STACK = "TypeScript 5.9.x, ES2024, Node 24";
+Usage: ${TOOL.name} <command> [options]
+Update: npx ${TOOL.packageName}@latest update
 
-function printHelp() {
-  process.stdout.write(
-    [
-      "ts-reviewer: install TypeScript review skill\n",
-      "\n",
-      "Usage:\n",
-      "  npx ts-reviewer\n",
-      "\n",
-      "Options:\n",
-      "  -h, --help      show help\n",
-    ].join("")
-  );
+Commands:
+${INSTALLER_HELP}${Object.entries(COMMANDS).map(([name, c]) => `\n  ${name.padEnd(11)} ${c.summary}`).join("")}`;
+
+async function main(argv: string[]): Promise<number> {
+  const [command, ...rest] = argv;
+  if (!command || command === "-h" || command === "--help" || command === "help") {
+    console.log(HELP);
+    return command ? 0 : 1;
+  }
+  if (command === "-v" || command === "--version") {
+    console.log(TOOL.version);
+    return 0;
+  }
+  if (INSTALLER_COMMANDS.includes(command)) return runInstallerCommand(command, rest, TOOL);
+  if (Object.hasOwn(COMMANDS, command)) return COMMANDS[command].run(rest);
+  console.error(`Unknown command "${command}".\n\n${HELP}`);
+  return 1;
 }
 
-async function main() {
-  const args = process.argv.slice(2);
-  if (args.includes("-h") || args.includes("--help")) {
-    printHelp();
-    return;
-  }
-
-  const cwd = process.cwd();
-  const skillName = SKILL_NAME;
-
-  process.stdout.write(
-    [
-      "TypeScript Code Reviewer\n",
-      `Checks: type safety, security, async patterns, boundary validation, error handling, modernization, code quality, tsconfig, dependency hygiene\n`,
-      `Target stack: ${TARGET_STACK}\n`,
-      "\n",
-    ].join("")
-  );
-
-  const selected = await multiSelect(
-    "Install for which AI agents? (Space = toggle, Enter = confirm)",
-    AI_PROVIDERS
-  );
-
-  if (selected.length === 0) {
-    process.stdout.write("No agents selected. Exiting.\n");
-    return;
-  }
-
-  for (const provider of selected as AiProvider[]) {
-    const targetDir = skillTargetDir(cwd, provider, skillName);
-    const providerLabel = AI_PROVIDERS.find((p) => p.value === provider)!.label;
-
-    process.stdout.write(`\n[${providerLabel}]\n`);
-
-    const result = await scaffoldTsReviewerSkill({ cwd, skillName, targetDir });
-
-    for (const e of result.entries) {
-      process.stdout.write(`${e.action}\t${e.relativePath}\n`);
-    }
-  }
-}
-
-main().catch((err) => {
-  process.stderr.write((err as Error)?.stack ? String((err as Error).stack) : String(err));
-  process.stderr.write("\n");
-  process.exitCode = 1;
-});
+main(process.argv.slice(2)).then(
+  (code) => { process.exitCode = code; },
+  (e: Error) => {
+    console.error(`${TOOL.name}: ${e.message}`);
+    process.exitCode = 1;
+  },
+);
