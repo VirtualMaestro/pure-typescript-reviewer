@@ -474,3 +474,57 @@ Opus main agent, 1 Sonnet pass, skill lint approved. Run directory `recall-corpu
   It now takes the base name of any path.
 - **The skill names Bash's `head`** at step 20, and Codex on PowerShell used `Select-Object -First
   200`. It read the intent; no change.
+
+## Prepublish: pass prompts and the report builder (2026-10-06)
+
+The skill is `e42a9d1`: `pass-prompts.mjs` writes the pass prompts, and `build-report.mjs` applies
+the merge steps and renders the report from the main agent's decisions
+(`docs/ts-reviewer-prepublish-proposal.md`).
+
+### P1: the recall corpus, S's configuration, 1 run
+
+`--scout sonnet`, skill lint declined, run directory `recall-corpus-sL4l8Z`.
+
+| | S (mean of 3) | P1 |
+|---|---|---|
+| Recall in the report, all / High+ | 64/66 of 3 runs, 42/42 | 22/22, 14/14 |
+| API-equivalent, main agent | $1.77 | **$1.15 (−35%)** |
+| API-equivalent, passes | $0.88 | $0.88 |
+| API-equivalent, run | $2.65 | **$2.03 (−23%)** |
+| Validator | | first try |
+
+**Reading:**
+- **Both levers pay on the corpus.** The main agent writes 1 plan and 1 decision file, not 5
+  prompts and a report: $0.62 less, with nothing lost.
+- **`check-passes.mjs` repaired 4 categories** the Security pass wrote as check groups
+  (`injection`, `path traversal`), the Sonnet slip of series S, at no cost to the main agent.
+
+### S‴: the large project, 1 run
+
+`--scout sonnet`, skill lint approved, `gt-s3` at game-trends `4ab9ac3`.
+
+| | S″ | S‴ |
+|---|---|---|
+| Passes | 23 + lint | 36 + lint (1 of them a `-rest` pass) |
+| API-equivalent, main agent | $5.03 | **$3.10 (−38%)** |
+| API-equivalent, passes | $6.39 | $10.21 (+60%) |
+| API-equivalent, run | $11.42 | $13.31 (+17%) |
+| Report | 66 issues, 19 High | 57 issues, 16 High |
+| Validator | second try | first try |
+| `report.json` decisions | | 15 drops, 9 edits, 0 adds |
+
+**Reading:**
+- **The main agent's levers pay on the large project too:** −38%.
+- **The pass count undid it.** The split wording of `b5eaedc` and `eaf094a` took every directory
+  of over 20 files down to its subdirectories, which left 1-file passes (`.root`, `.db`,
+  `.scripts`): 36 passes for 58 files, and a pass costs about $0.15–0.30 before it reads a file.
+  `68b4370` joins neighbouring parts while a part holds <= 20 files.
+- **The rest pass worked:** `config+dependency-hygiene` listed `pnpm-lock.yaml` as skipped, and
+  a `-rest` pass read it.
+- **`check-passes.mjs` did the Sonnet clean-up:** 22 categories repaired, 1 line moved, 4
+  snippets flagged, 9 severities shown, 1 skip named.
+- **Both §3.1 sites of the large-run proposal stay High,** and `stdio.test.ts:44` is Medium now,
+  as the test-file line says.
+- **Unclear, quoted by the run agent, all settled in `68b4370`:** the split's loose files, step 34
+  against step 35's cap, "reachable" for the LSP, an elided snippet, and `lint-skill` marked `done`
+  by hand.
