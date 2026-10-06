@@ -41,7 +41,12 @@ export function passPrompts(plan, root) {
   const old = readQueue(path.join(dir, "queue.md"));
   const rows = [];
   for (const pass of plan.passes) {
-    const kept = old.get(pass.id);
+    // A pass file that already ends with its done line, as lint-skill's does, is done.
+    const file = path.join(dir, `${pass.id}.jsonl`);
+    const last = existsSync(file) ? readFileSync(file, "utf8").trim().split(/\r?\n/).at(-1) : "";
+    let done = null;
+    try { done = JSON.parse(last)?.done ? JSON.parse(last) : null; } catch { done = null; }
+    const kept = old.get(pass.id) ?? (done ? [pass.id, "", "", "done", "1", String(done.findings ?? "")] : undefined);
     rows.push(`| ${pass.id} | ${pass.domains.join(", ")} | ${pass.files.length} | ${kept?.[3] ?? "pending"} | ${kept?.[4] ?? 0} | ${kept?.[5] ?? ""} |`);
     if (pass.id === "lint-skill") continue;
     const missing = pass.domains.filter((d) => !refs.has(d));

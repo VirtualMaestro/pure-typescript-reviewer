@@ -156,12 +156,12 @@ workflow:
 20. run `npx tsc --noEmit -p <config>` for each project config of step 10 that includes a scoped file, keep the first 200 lines of each in `code-smells/passes/tsc.log`, and report only the errors in the scoped files
 21. run the linter into `code-smells/passes/lint.json`: `npx eslint [files] --format json` or `npx biome check [files] --reporter json`
 22. reuse `tsc.log` and `lint.json` on a resume when the queue `HEAD` matches and the tree is clean, and rerun both otherwise
-23. query the TypeScript LSP over MCP when it is reachable, then merge and deduplicate against the compiler output
+23. query the TypeScript LSP when the host lists an LSP tool, then merge and deduplicate against the compiler output
 24. triage every compiler and linter diagnostic through `severity_mapping`
 25. read the reference file named in `domains` before each analysis pass
 26. run the mechanical pre-pass in `references/architecture.md` when Architecture is active, passing the approved tool decision and scoped base
 27. report the discovery summary in the shape of `discovery_summary`, including skipped and clean mechanical results
-28. build the pass list: 1 pass per `pass_groups` row holding an active domain, with the files of its rule, splitting a directory above 20 files into its subdirectories until each part holds <= 20, or the directory has none
+28. build the pass list: 1 pass per `pass_groups` row holding an active domain, with the files of its rule, splitting a directory above 20 files by its subdirectories, then joining neighbouring parts while a part holds <= 20
 29. write `code-smells/passes/plan.json` in the shape of `pass_queue`, in its pass order, then run `tools/pass-prompts.mjs`, which writes the queue and 1 prompt per pass
 ```bash
 SKILL=<the directory this file was loaded from>
@@ -175,7 +175,7 @@ node "$SKILL/tools/pass-prompts.mjs" --plan code-smells/passes/plan.json
 SKILL=<the directory this file was loaded from>
 node "$SKILL/tools/check-passes.mjs" --refs "$SKILL/references" --dir code-smells/passes
 ```
-34. re-read the exact lines in the current file state before a finding enters the report, and settle each severity `check-passes.mjs` prints against its check line
+34. re-read the exact lines in the current file state before a finding enters the report, and settle each severity `check-passes.mjs` prints: keep a lower one only for a reason step 35 or `forbidden_behaviors` gives
 35. read the callers to verify a data flow a finding rests on, or mark its problem statement with "if <condition>" and cap its severity at Medium, unless its reference states a rule for an untraced source
 36. downgrade a flagged non-High pattern that appears 5+ times across the codebase by 1 level, and report it once as a Recurring Pattern
 37. boost a finding carrying `in_diff: true` by 1 level in a scoped mode, and mark it `High [boosted, was Medium — new code]`
@@ -324,8 +324,8 @@ Output JSONL, one object per line:
   "title": "Short descriptive title",
   "file": "relative/path.ts",
   "line": 42,
-  "check": "the reference file and line of the checklist line applied, as boundary-validation.md:11",
-  "snippet": "3-7 lines of code",
+  "check": "the reference file and line of the pattern line applied, the one carrying a severity, as boundary-validation.md:11",
+  "snippet": "3-7 lines copied from the file as they stand, with no line elided",
   "problem": "One-sentence explanation",
   "fix": "Concrete recommendation with code example",
   "auto_fixable": true|false,

@@ -821,11 +821,13 @@ test("pass-prompts fills the template for every pass and keeps the queue of a re
   };
   write(dir, "code-smells/passes/plan.json", JSON.stringify(plan));
   write(dir, "code-smells/passes/queue.md", "| Pass | Domains | Files | Status | Attempts | Findings |\n|---|---|---|---|---|---|\n| security | Security | 2 | done | 1 | 4 |\n");
+  write(dir, "code-smells/passes/lint-skill.jsonl", JSON.stringify({ done: true, findings: 7, files: 2 }) + "\n");
   const out = run(path.join(tools, "pass-prompts.mjs"), ["--plan", "code-smells/passes/plan.json"], dir);
   assert.match(out, /3 passes in queue\.md/);
   const queue = readFileSync(path.join(dir, "code-smells/passes/queue.md"), "utf8");
   assert.match(queue, /^HEAD: abc123$/m);
   assert.match(queue, /^\| security \| Security \| 2 \| done \| 1 \| 4 \|$/m);
+  assert.match(queue, /^\| lint-skill \| Type Safety, Security \| 2 \| done \| 1 \| 7 \|$/m);
   assert.match(queue, /^\| type-safety\+boundary-validation\.src \| Type Safety, Boundary Validation \| 1 \| pending \| 0 \|  \|$/m);
   assert.deepEqual(readdirSync(path.join(dir, "code-smells/passes/prompts")).sort(), ["security.md", "type-safety+boundary-validation.src.md"]);
   const prompt = readFileSync(path.join(dir, "code-smells/passes/prompts/type-safety+boundary-validation.src.md"), "utf8");
