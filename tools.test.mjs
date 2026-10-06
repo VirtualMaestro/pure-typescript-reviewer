@@ -844,12 +844,17 @@ test("pass-prompts fills the template for every pass and keeps the queue of a re
 test("build-report applies the decisions and the merge steps, and writes a report the validator accepts", () => {
   const { dir } = newRepo();
   write(dir, "src/a.ts", Array.from({ length: 30 }, (_, i) => `export const v${i + 1} = JSON.parse(input${i + 1}) as Row;`).join("\n") + "\n");
+  write(dir, "test/a.test.ts", Array.from({ length: 3 }, (_, i) => `export const v${i + 1} = JSON.parse(input${i + 1}) as Row;`).join("\n") + "\n");
   const at = (line, extra) => ({ category: "Boundary Validation", severity: "high", title: "Cast JSON", file: "src/a.ts", line, snippet: `export const v${line} = JSON.parse(input${line}) as Row;`, problem: "p", fix: "f", auto_fixable: false, hot: "no", fix_cost: "none", in_diff: false, check: "boundary-validation.md:12", ...extra });
   const lines = (records) => records.map((r) => JSON.stringify(r)).concat(JSON.stringify({ done: true, findings: records.length, files: 1 })).join("\n") + "\n";
   write(dir, "code-smells/passes/type-safety+boundary-validation.jsonl", lines([
     at(1), at(2), at(3), // 3 High of 1 check: 1 full entry, 2 sites in the row
     ...[10, 11, 12, 13, 14].map((l) => at(l, { severity: "medium", title: "Literal", check: "code-quality.md:20", category: "Type Safety" })), // 5 Medium: downgraded row
     at(20, { severity: "low", title: "Name", check: "code-quality.md:30" }),
+    // 1 check on 2 test sites and 1 site of the code under test: the latter is the full entry.
+    at(1, { file: "test/a.test.ts", title: "Row", check: "boundary-validation.md:13" }),
+    at(2, { file: "test/a.test.ts", title: "Row", check: "boundary-validation.md:13" }),
+    at(5, { title: "Row", check: "boundary-validation.md:13" }),
     at(21, { severity: "low", title: "Hot", check: "code-quality.md:31", hot: "yes", fix_cost: "alloc" }),
   ]));
   write(dir, "code-smells/passes/security.jsonl", lines([at(20, { category: "Security", severity: "medium", title: "Taint", check: "security.md:33" }), at(25, { severity: "medium", title: "Gone", check: "security.md:40" })]));
@@ -862,7 +867,7 @@ test("build-report applies the decisions and the merge steps, and writes a repor
   };
   write(dir, "code-smells/passes/report.json", JSON.stringify(input));
   const out = run(path.join(tools, "build-report.mjs"), ["--dir", "code-smells/passes", "--input", "code-smells/passes/report.json", "--out", "code-smells/report.md"], dir);
-  assert.match(out, /build-report: 4 issues, 2 pattern rows/);
+  assert.match(out, /build-report: 5 issues, 3 pattern rows/);
   const report = readFileSync(path.join(dir, "code-smells/report.md"), "utf8");
   // The merge of line 20 (Low + Medium Taint) is 1 Medium entry naming both categories.
   assert.match(report, /### Taint edited \/ Name — Medium\n\n\*\*Category:\*\* Security, Boundary Validation/);
@@ -871,7 +876,8 @@ test("build-report applies the decisions and the merge steps, and writes a repor
   assert.match(report, /\| Literal \[Type Safety\] \| 5 \| downgraded Medium to Low/);
   assert.doesNotMatch(report, /Gone|No done line/);
   assert.match(report, /Added by the main agent — Medium/);
-  assert.match(report, /\*\*Total issues:\*\* 4 \(0 highest, 1 high, 2 medium, 1 low\)/);
+  assert.match(report, /\*\*Total issues:\*\* 5 \(0 highest, 2 high, 2 medium, 1 low\)/);
+  assert.match(report, /\| Row \[Boundary Validation\] \| 2 \| High, kept: `src\/a\.ts:5` stands as the full entry.*Locations: `test\/a\.test\.ts:1`, `test\/a\.test\.ts:2` \|/);
   const result = validate(dir);
   assert.equal(result.status, 0, result.stderr);
   rmSync(dir, { recursive: true, force: true });

@@ -355,6 +355,7 @@ pass_queue:
 - a status is `pending`, `done`, or `failed`, and `Attempts` counts the waves the pass ran in
 - a pass whose agent neither replied nor wrote its `done` line within 30 minutes stays `pending` for the next wave: stop that agent where the host allows
 - a `done` line that lists `skipped` files adds 1 pass of the same group over them, with the id `<pass id>-rest`, which adds no further pass
+- a lockfile is searched, never read in full, so a `skipped` lockfile adds no pass
 ```markdown
 # Pass queue
 

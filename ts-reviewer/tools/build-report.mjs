@@ -17,6 +17,7 @@ import { pathToFileURL } from "node:url";
 const LEVELS = ["Low", "Medium", "High", "Highest"];
 const level = (s) => LEVELS.indexOf(s);
 const cap = (s) => LEVELS.find((l) => l.toLowerCase() === String(s).toLowerCase()) ?? "Medium";
+const TEST_FILE = /(^|\/)(test|tests|__tests__)\/|\.(test|spec)\.[cm]?[jt]sx?$/;
 const hotEntry = (f) => f.hot && f.hot !== "no" && f.fix_cost && f.fix_cost !== "none";
 const oneLine = (s) => String(s ?? "").replace(/\s*\n\s*/g, " ").trim();
 const cell = (s) => oneLine(s).replace(/\|/g, "\\|");
@@ -42,9 +43,12 @@ function merge(findings) {
     if (!entry) { byLine.set(at, { ...f, categories: [f.category], titles: [oneLine(f.title)], problems: [oneLine(f.problem)], fixes: [oneLine(f.fix)] }); continue; }
     const id = f.check ?? f.title;
     if ((entry.check ?? entry.title) === id && entry.titles.includes(oneLine(f.title))) continue;
-    if (!entry.categories.includes(f.category)) entry.categories.push(f.category);
-    if (!entry.titles.includes(oneLine(f.title))) { entry.titles.push(oneLine(f.title)); entry.problems.push(oneLine(f.problem)); entry.fixes.push(oneLine(f.fix)); }
-    if (level(f.severity) > level(entry.severity)) Object.assign(entry, { severity: f.severity, check: f.check, snippet: f.snippet });
+    // The most severe issue leads the merged entry: its title, category, and fix come first.
+    const lead = level(f.severity) > level(entry.severity);
+    const put = (list, item) => (lead ? list.unshift(item) : list.push(item));
+    if (!entry.categories.includes(f.category)) put(entry.categories, f.category);
+    if (!entry.titles.includes(oneLine(f.title))) { put(entry.titles, oneLine(f.title)); put(entry.problems, oneLine(f.problem)); put(entry.fixes, oneLine(f.fix)); }
+    if (lead) Object.assign(entry, { severity: f.severity, check: f.check, snippet: f.snippet });
     if (hotEntry(f) && !hotEntry(entry)) Object.assign(entry, { hot: f.hot, fix_cost: f.fix_cost });
     entry.auto_fixable &&= f.auto_fixable;
     entry.in_diff ||= f.in_diff;
@@ -63,22 +67,25 @@ function consolidate(entries, scoped) {
   const keep = [];
   const groups = new Map();
   for (const e of entries) {
-    if (hotEntry(e)) { keep.push(e); continue; }
+    // A hot entry keeps its snippet for fix mode (step 43), and a merged entry names issues a row cannot.
+    if (hotEntry(e) || e.titles.length > 1) { keep.push(e); continue; }
     const id = e.check ?? e.titles[0];
     if (!groups.has(id)) groups.set(id, []);
     groups.get(id).push(e);
   }
-  const row = (members, treatment) => rows.push({
-    name: `${members[0].titles[0]} [${members[0].categories[0]}]`, count: members.length, treatment,
+  const row = (members, treatment, lead = members[0]) => rows.push({
+    name: `${lead.titles[0]} [${lead.categories[0]}]`, count: members.length, treatment,
     sites: members.map((m) => `${m.file}:${m.line}`),
   });
   for (const members of groups.values()) {
-    members.sort(order(scoped));
-    const top = members[0].severity;
+    // The full entry of a High pattern is a site of the code under test before a test file's.
+    members.sort((a, b) => Number(TEST_FILE.test(a.file)) - Number(TEST_FILE.test(b.file)) || order(scoped)(a, b));
+    const top = members.reduce((s, m) => (level(m.severity) > level(s) ? m.severity : s), "Low");
     if (members.length < 3) keep.push(...members);
     else if (level(top) >= level("High")) {
-      keep.push(members[0]);
-      row(members.slice(1), `${top}, kept: \`${members[0].file}:${members[0].line}\` stands as the full entry (step 40), the other sites are listed here`);
+      const lead = members.find((m) => m.severity === top);
+      keep.push(lead);
+      row(members.filter((m) => m !== lead), `${top}, kept: \`${lead.file}:${lead.line}\` stands as the full entry (step 40), the other sites are listed here`, lead);
     } else if (members.length >= 5) {
       const to = top === "Low" ? "Low, already the lowest level" : `downgraded ${top} to ${LEVELS[level(top) - 1]}`;
       row(members, `${to} (5+ occurrences, step 36), reported once`);
