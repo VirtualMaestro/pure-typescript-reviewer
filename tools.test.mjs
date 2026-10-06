@@ -808,3 +808,33 @@ test("check-passes repairs the slips of a pass agent and prints what needs a rea
   assert.equal(JSON.parse(readFileSync(path.join(dir, "security.jsonl"), "utf8").split("\n")[0]).fix, "match /\\w+/");
   rmSync(dir, { recursive: true, force: true });
 });
+
+test("pass-prompts fills the template for every pass and keeps the queue of a resume", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "pass-prompts-"));
+  const plan = {
+    head: "abc123", scope: "full", agents: 3, lint: true,
+    passes: [
+      { id: "lint-skill", domains: ["Type Safety", "Security"], files: ["src/a.ts", "src/b.ts"] },
+      { id: "security", domains: ["Security"], files: ["src/a.ts", "src/b.ts"], context: ["src/types.ts"] },
+      { id: "type-safety+boundary-validation.src", domains: ["Type Safety", "Boundary Validation"], files: ["src/a.ts"] },
+    ],
+  };
+  write(dir, "code-smells/passes/plan.json", JSON.stringify(plan));
+  write(dir, "code-smells/passes/queue.md", "| Pass | Domains | Files | Status | Attempts | Findings |\n|---|---|---|---|---|---|\n| security | Security | 2 | done | 1 | 4 |\n");
+  const out = run(path.join(tools, "pass-prompts.mjs"), ["--plan", "code-smells/passes/plan.json"], dir);
+  assert.match(out, /3 passes in queue\.md/);
+  const queue = readFileSync(path.join(dir, "code-smells/passes/queue.md"), "utf8");
+  assert.match(queue, /^HEAD: abc123$/m);
+  assert.match(queue, /^\| security \| Security \| 2 \| done \| 1 \| 4 \|$/m);
+  assert.match(queue, /^\| type-safety\+boundary-validation\.src \| Type Safety, Boundary Validation \| 1 \| pending \| 0 \|  \|$/m);
+  assert.deepEqual(readdirSync(path.join(dir, "code-smells/passes/prompts")).sort(), ["security.md", "type-safety+boundary-validation.src.md"]);
+  const prompt = readFileSync(path.join(dir, "code-smells/passes/prompts/type-safety+boundary-validation.src.md"), "utf8");
+  assert.doesNotMatch(prompt, /\[[A-Z_]+\]|\[full\|/);
+  assert.match(prompt, /focused on Type Safety, Boundary Validation/);
+  assert.match(prompt, /references\/type-safety\.md, .*references\/boundary-validation\.md/);
+  assert.match(prompt, /lint-owned by" when this reads yes: yes/);
+  assert.match(prompt, /Review these files: \n- src\/a\.ts/);
+  assert.match(prompt, /Context files \(read-only, do NOT report issues\): none/);
+  assert.match(prompt, /to: code-smells\/passes\/type-safety\+boundary-validation\.src\.jsonl/);
+  rmSync(dir, { recursive: true, force: true });
+});

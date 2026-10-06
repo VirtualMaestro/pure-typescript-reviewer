@@ -162,8 +162,12 @@ workflow:
 26. run the mechanical pre-pass in `references/architecture.md` when Architecture is active, passing the approved tool decision and scoped base
 27. report the discovery summary in the shape of `discovery_summary`, including skipped and clean mechanical results
 28. build the pass list: 1 pass per `pass_groups` row holding an active domain, with the files of its rule, splitting a directory above 20 files into its subdirectories until each part holds <= 20
-29. write `code-smells/passes/queue.md` in the shape of `pass_queue`, in its domain order, and skip a pass marked `done` on a resume
-30. run the pending passes in waves of the wave size, as sub-agents shaped by `subagent_template`, or in the main agent when the wave size is 1
+29. write `code-smells/passes/plan.json` in the shape of `pass_queue`, in its pass order, then run `tools/pass-prompts.mjs`, which writes the queue and 1 prompt per pass
+```bash
+SKILL=<the directory this file was loaded from>
+node "$SKILL/tools/pass-prompts.mjs" --plan code-smells/passes/plan.json
+```
+30. run the pending passes in waves of the wave size, each as a sub-agent whose prompt is 1 line: read `code-smells/passes/prompts/<pass id>.md` and follow it, or in the main agent when the wave size is 1
 31. wait for every agent of a wave, and mark a pass `done` once the last line of its file is the `done` line, whether or not its agent replied, and `pending` otherwise
 32. mark a pass `failed` after 2 attempts without a `done` line, name it in the discovery summary, and report its domains as not run
 33. run `tools/check-passes.mjs` once after the last wave, then read the findings of every `done` pass from its `.jsonl` file
@@ -333,6 +337,16 @@ pass_queue:
 - `--agents 1` runs 1 pass at a time in the main agent, with no sub-agent
 - the pass id is the group id of `pass_groups`, or `<group id>.<directory slug>` for a split pass
 - the pass order is the row order of `pass_groups`, after the row `lint-skill` of `skill_lint`
+- the plan names every pass with its domains and files, and `lint-skill` with its files and no prompt
+- `pass-prompts.mjs` fills `subagent_template` for each pass, and keeps the status, attempts, and findings of a pass the queue already holds: a resume writes the same plan
+```json
+{
+  "head": "<sha>", "scope": "full", "agents": 3, "lint": true,
+  "passes": [
+    { "id": "security.src-auth", "domains": ["Security"], "files": ["src/auth/a.ts"], "context": ["src/types.ts"] }
+  ]
+}
+```
 - a queue holding a pass id absent from `pass_groups` predates pass groups: restart it without the resume ask
 - a status is `pending`, `done`, or `failed`, and `Attempts` counts the waves the pass ran in
 - a pass whose agent neither replied nor wrote its `done` line within 30 minutes stays `pending` for the next wave: stop that agent where the host allows
