@@ -6,11 +6,12 @@ read_first:
 - a runtime boundary is where untyped data from outside the process becomes typed data
 - the design rule is parse, do not validate: 1 place checks external data and converts it into a typed value, and nothing re-checks it afterwards
 - the compiler knows only what happens inside the process, so every claim about outside data is a promise the code earns at the boundary
+- a test file is `*.test.*`, `*.spec.*`, or a file under `test/`, `tests/`, or `__tests__/`
 
 checks:
 - lying to the compiler — `as T` or a typed annotation on `JSON.parse(...)`, `await res.json()`, `process.env.X`, a CLI argument, a queue or socket message, or file contents: High
 - lying to the compiler — a database result typed by a generic or a cast, `sql<Row>`, `query<Row>(...)`, `rows as Row[]`: High, the row shape is a claim like any other
-- lying to the compiler — a `JSON.parse(...)` result read or traversed as `any` with no check: High, the implicit `any` makes the same claim with no annotation
+- lying to the compiler — a `JSON.parse(...)` result read or traversed as `any` with no check: High, the implicit `any` makes the same claim with no annotation; Medium in a test file
 - lying to the compiler — note: the unverified boundary is the canonical case: the type is a claim nothing checks
 - lying to the compiler — fix: an unverified boundary, by validating it with a schema or a hand-written guard, then using the type the schema infers
 - lying to the compiler — a fetch wrapper generic, `get<T>(url): Promise<T>`, that casts internally: High, it moves the lie into a helper every caller trusts

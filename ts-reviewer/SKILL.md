@@ -153,7 +153,7 @@ workflow:
 17. collect the context files named in `scope:` when the scope mode is scoped
 18. identify feature slices and public entry points when Architecture is active, leaving graph discovery to its mechanical pre-pass
 19. collect machine-readable dependency rules and prose from ADR directories, `ARCHITECTURE.md`, README, and `CONTRIBUTING.md`
-20. run `npx tsc --noEmit 2>&1 | head -200` over the full project into `code-smells/passes/tsc.log`, and report only the errors in the scoped files
+20. run `npx tsc --noEmit -p <config>` for each project config of step 10 that includes a scoped file, keep the first 200 lines of each in `code-smells/passes/tsc.log`, and report only the errors in the scoped files
 21. run the linter into `code-smells/passes/lint.json`: `npx eslint [files] --format json` or `npx biome check [files] --reporter json`
 22. reuse `tsc.log` and `lint.json` on a resume when the queue `HEAD` matches and the tree is clean, and rerun both otherwise
 23. query the TypeScript LSP over MCP when it is reachable, then merge and deduplicate against the compiler output
@@ -164,7 +164,7 @@ workflow:
 28. build the pass list: 1 pass per `pass_groups` row holding an active domain, with the files of its rule, splitting a directory above 20 files into its subdirectories until each part holds <= 20
 29. write `code-smells/passes/queue.md` in the shape of `pass_queue`, in its domain order, and skip a pass marked `done` on a resume
 30. run the pending passes in waves of the wave size, as sub-agents shaped by `subagent_template`, or in the main agent when the wave size is 1
-31. wait for every agent of a wave, then mark each pass `done` when the last line of its file is the `done` line, and `pending` otherwise
+31. wait for every agent of a wave, and mark a pass `done` once the last line of its file is the `done` line, whether or not its agent replied, and `pending` otherwise
 32. mark a pass `failed` after 2 attempts without a `done` line, name it in the discovery summary, and report its domains as not run
 33. run `tools/check-passes.mjs` once after the last wave, then read the findings of every `done` pass from its `.jsonl` file
 ```bash
@@ -177,7 +177,7 @@ node "$SKILL/tools/check-passes.mjs" --refs "$SKILL/references" --dir code-smell
 37. boost a finding carrying `in_diff: true` by 1 level in a scoped mode, and mark it `High [boosted, was Medium — new code]`
 38. deduplicate the findings on the same file, line, and issue, keeping 1
 39. merge every finding on the same file and line into 1 entry, attributing each category raised and naming each issue, at the higher severity
-40. consolidate 3+ identical issues into 1 Recurring Pattern entry
+40. consolidate 3+ identical issues into 1 Recurring Pattern entry, and keep 1 site of a High or Highest pattern as a full entry: fix mode needs its snippet
 41. keep the top 15 by severity and impact when a single domain produces more than 25 Medium or Low findings, and consolidate the rest into Recurring Pattern entries with their counts, 1 entry per `check` line
 42. keep a finding whose `hot` is not `no` and whose `fix_cost` is not `none` as a full entry carrying the `Hot path` line, whatever its severity
 43. keep that finding out of every summary table and every Recurring Pattern entry, whatever steps 36, 40, and 41 do with its siblings: fix mode needs its snippet to design the fix
@@ -304,7 +304,9 @@ Context files (read-only, do NOT report issues): [CONTEXT_FILE_LIST]
 Scope mode: [full|uncommitted|branch|commits:N]
 Write every finding as 1 JSONL line to: [OUTPUT_PATH]
 Write that file with your file-writing tool, never a shell heredoc: an unbalanced quote leaves the shell waiting.
-Append 1 last line when every file is reviewed: {"done": true, "findings": N, "files": M}
+Run no command that waits for input, and give every shell command a time limit.
+Append 1 last line when every file is reviewed: {"done": true, "findings": N, "files": M, "skipped": []}
+List in `skipped` every file of the list you did not read in full: a search over a file is not a reading.
 Reply with 1 line: the pass id, the findings count, the files count. The file is the result; the reply is not.
 
 Output JSONL, one object per line:
@@ -333,6 +335,8 @@ pass_queue:
 - the pass order is the row order of `pass_groups`, after the row `lint-skill` of `skill_lint`
 - a queue holding a pass id absent from `pass_groups` predates pass groups: restart it without the resume ask
 - a status is `pending`, `done`, or `failed`, and `Attempts` counts the waves the pass ran in
+- a pass whose agent neither replied nor wrote its `done` line within 30 minutes stays `pending` for the next wave: stop that agent where the host allows
+- a `done` line that lists `skipped` files adds 1 pass of the same group over them, with the id `<pass id>-rest`, which adds no further pass
 ```markdown
 # Pass queue
 

@@ -6,6 +6,7 @@
 // - print: a severity that differs from the one its `check` line states;
 // - print: a `done` line that claims fewer files than the queue gave the pass: a pass may read
 //   context files beyond its list, so more is not a gap;
+// - print: the files a `done` line lists as `skipped`, which step 31 runs again;
 // - repair: a line whose snippet stands elsewhere in the file, when its longest line occurs there
 //   once; print a snippet found nowhere, and a file that does not exist.
 //
@@ -15,6 +16,9 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const SEVERITY = /: (Highest|High|Medium|Low)\b/;
+// A check line may grade a test file apart, as "...: High, ...; Medium in a test file".
+const TEST_SEVERITY = /\b(Highest|High|Medium|Low) in a test file\b/;
+const TEST_FILE = /(^|\/)(test|tests|__tests__)\/|\.(test|spec)\.[cm]?[jt]sx?$/;
 const slug = (domain) => domain.toLowerCase().replace(/ /g, "-");
 
 // The domain of every reference file, from the `domains:` table of SKILL.md.
@@ -80,7 +84,7 @@ export function checkPasses(refsDir, dir, root = path.resolve(dir, "..", "..")) 
   const report = [];
   for (const name of readdirSync(dir).filter((f) => f.endsWith(".jsonl")).sort()) {
     const id = name.slice(0, -".jsonl".length);
-    const allowed = id === "lint-skill" ? null : new Set(id.split(".")[0].split("+"));
+    const allowed = id === "lint-skill" ? null : new Set(id.split(".")[0].replace(/-rest$/, "").split("+"));
     const raw = readFileSync(path.join(dir, name), "utf8");
     const notes = [];
     let text = raw;
@@ -111,7 +115,9 @@ export function checkPasses(refsDir, dir, root = path.resolve(dir, "..", "..")) 
       if (site) notes.push(site.replace(/^(repaired|site): /, `$1: ${at} `));
       if (!record.check) unchecked++;
       else {
-        const stated = refLine(refFile, Number(refAt))?.match(SEVERITY)?.[1];
+        const text = refLine(refFile, Number(refAt)) ?? "";
+        const inTest = TEST_FILE.test(String(record.file)) ? text.match(TEST_SEVERITY)?.[1] : undefined;
+        const stated = inTest ?? text.match(SEVERITY)?.[1];
         if (!stated) notes.push(`check: ${at} names ${record.check}, which states no severity`);
         else if (stated.toLowerCase() !== String(record.severity).toLowerCase()) {
           notes.push(`severity: ${at} ${record.file}:${record.line} is ${record.severity}, ${record.check} states ${stated}`);
@@ -120,6 +126,7 @@ export function checkPasses(refsDir, dir, root = path.resolve(dir, "..", "..")) 
       out.push(JSON.stringify(record));
     });
     if (unchecked) notes.push(`no check: ${unchecked} of ${out.length - (done ? 1 : 0)} findings name no check line`);
+    if (done?.skipped?.length) notes.push(`skipped: ${done.skipped.join(", ")}`);
     if (!done) notes.push("no done line");
     else if (done.files < (queue.get(id) ?? 0)) notes.push(`files: the done line claims ${done.files}, the queue gave ${queue.get(id)}`);
     const fixed = out.join("\n") + "\n";

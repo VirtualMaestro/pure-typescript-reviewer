@@ -781,7 +781,17 @@ test("check-passes repairs the slips of a pass agent and prints what needs a rea
     JSON.stringify({ category: "Error Handling", severity: "high", title: "t", file: "src/b.ts", line: 3, snippet: "nothing like this exists", check: "error-handling.md:1" }),
     JSON.stringify({ done: true, findings: 2, files: 1 }),
   ].join("\n") + "\n");
+  // The untyped JSON.parse line grades a test file Medium; a rest pass keeps its group; a skip is named.
+  const parseLine = boundary.findIndex((l) => l.includes("a `JSON.parse(...)` result read or traversed")) + 1;
+  write(dir, "test/c.test.ts", "const a = 1;\nconst b = 2;\n");
+  writeFileSync(path.join(dir, "type-safety+boundary-validation-rest.jsonl"), [
+    JSON.stringify({ category: "Boundary Validation", severity: "medium", title: "t", file: "test/c.test.ts", line: 1, check: `boundary-validation.md:${parseLine}` }),
+    JSON.stringify({ done: true, findings: 1, files: 1, skipped: ["test/d.test.ts"] }),
+  ].join("\n") + "\n");
   const out = run(path.join(tools, "check-passes.mjs"), ["--refs", refs, "--dir", ".", "--repo", "."], dir);
+  assert.match(out, /type-safety\+boundary-validation-rest\n  skipped: test\/d\.test\.ts\n/);
+  assert.doesNotMatch(out, /test\/c\.test\.ts:1 is medium/);
+  assert.doesNotMatch(out, /outside type-safety\+boundary-validation-rest/);
   assert.match(out, /repaired: line 1 src\/b\.ts:40 moved to line 9/);
   assert.match(out, /site: line 2 the snippet of src\/b\.ts:3 stands nowhere near it/);
   assert.match(out, /site: line 1 src\/a\.ts does not exist/);
