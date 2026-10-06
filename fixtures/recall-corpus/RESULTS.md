@@ -460,8 +460,14 @@ Opus main agent, 1 Sonnet pass, skill lint approved. Run directory `recall-corpu
   `:394`, 2 `sql<T>` test reads as full entries against a pattern row. Codex alone grades 2 date
   parsers in `embedded-json.ts` High; S″ alone grades the 2 untyped `JSON.parse` test reads and 3
   test casts High.
-- **The lint failure is the host.** Codex moved `npm_config_cache` into TMPDIR under its sandbox,
-  and the `npx` install there lacked `typescript-eslint`. The skill took its fallback as designed:
+- **The lint failure is the skill's command, not the host,** traced on 2026-10-06. Run inside a
+  project whose tree already holds `typescript-eslint@8` (game-trends has 8.71.0 in `.pnpm`, for
+  `dashboard`), `npx` counts the package as present and leaves it out of its own install, so the
+  config's `createRequire(process.argv[1])` cannot find it. A fresh cache hits it on any host:
+  Codex hit it because it moved `npm_config_cache` into TMPDIR, and Claude Code passed only on an
+  older complete install in its default cache. An empty directory installs all 3 packages. The fix
+  is `npx --prefix "$TMPDIR/ts-reviewer-lint"`: on a fresh cache in game-trends it gave 106
+  findings on 58 files, the S″ count. The skill took its fallback as designed meanwhile:
   `lint-skill` failed, and the async and error group read all 58 files.
 - **`check-passes.mjs` missed 2 lines:** Codex wrote `check` as a path,
   `.agents/skills/ts-reviewer/references/security.md:49`, and the tool read only a bare file name.

@@ -388,9 +388,11 @@ skill_lint:
 - the skill lint replaces no project linter: step 21 runs the project config as before
 - leave the pass `lint-skill` out of the queue when no active domain owns a line carrying "lint-owned by": the lint has nothing to decide
 - pass the active domain names to `lint-pass.mjs` with `--domains`: a finding owned by an inactive domain is dropped
+- run `npx` with `--prefix` in the temp directory: inside the project, `npx` skips a package the project tree already holds, and the config cannot load it
 ```bash
 SKILL=<the directory this file was loaded from>
-npx -y -p eslint@10 -p typescript-eslint@8 -p typescript@5.9 eslint -c "$SKILL/tools/eslint.config.mjs" --format json [files] 2>/dev/null > code-smells/passes/lint-skill.json
+LINT_PREFIX="${TMPDIR:-/tmp}/ts-reviewer-lint" && mkdir -p "$LINT_PREFIX"
+npx --prefix "$LINT_PREFIX" -y -p eslint@10 -p typescript-eslint@8 -p typescript@5.9 eslint -c "$SKILL/tools/eslint.config.mjs" --format json [files] 2>/dev/null > code-smells/passes/lint-skill.json
 node "$SKILL/tools/lint-pass.mjs" --refs "$SKILL/references" --lint code-smells/passes/lint-skill.json --out code-smells/passes/lint-skill.jsonl --domains "<the active domain names, joined by ,>"
 ```
 
