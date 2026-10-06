@@ -67,7 +67,7 @@ npx ts-reviewer@latest status      # installed version, newer one on npm, change
 npx ts-reviewer@latest uninstall
 ```
 
-Keep `@latest`: without it `npx` may run a copy it cached earlier, which installs its own, older version.
+Keep `@latest`: without it `npx` may run a copy it cached earlier. `update` refuses to replace a newer install with that older copy unless you pass `--force`.
 
 Without a terminal (CI, an AI agent, Git Bash under MinTTY) nothing is asked and flags decide:
 
