@@ -98,7 +98,8 @@ export function checkPasses(refsDir, dir, root = path.resolve(dir, "..", "..")) 
       if (!record) { notes.push(`unreadable: ${at} is not JSON`); out.push(line); return; }
       if (repaired) notes.push(`repaired: ${at} had an invalid escape`);
       if (record.done) { done = record; out.push(JSON.stringify(record)); return; }
-      const [refFile, refAt] = String(record.check ?? "").replace(/^references\//, "").split(":");
+      // A pass may write the check as a path (`.agents/skills/ts-reviewer/references/x.md:12`).
+      const [refFile, refAt] = path.basename(String(record.check ?? "").replace(/\\/g, "/")).split(":");
       const checkDomain = domainOf.get(refFile);
       if (allowed && !allowed.has(slug(String(record.category)))) {
         if (checkDomain && allowed.has(slug(checkDomain))) {

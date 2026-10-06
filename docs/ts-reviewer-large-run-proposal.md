@@ -126,9 +126,9 @@ reads the line from the file.
 | 1 | ~~§3.1 and §3.4 as text edits; `npm test`~~ done, `20de693` | none |
 | 2 | ~~§3.2 and §3.3: the template line and the tool, with 1 test~~ done, `883a507` | none |
 | 2b | ~~§3.5 and §3.6: the `pass_agent:` lines, the validator rule, and its test~~ done | none |
-| 3 | Rerun S′ once on game-trends; the bar is: both §3.1 sites High, 0 hand repairs | ~$12 |
+| 3 | ~~Rerun S′ once on game-trends~~ done as S″, 2026-10-05: both §3.1 sites High; hand repairs of Sonnet lines remained and led to §3.7 | $11.42 |
 | 4 | ~~Resume the Codex run~~ done 2026-10-05: it led to §3.5 and §3.6 | |
-| 5 | Rerun Codex on the patched skill; the bar is: 1 agent per pass, and analysis findings within reach of S′ | ChatGPT quota |
+| 5 | ~~Rerun Codex on the patched skill~~ done 2026-10-06: 1 agent per pass, 101 analysis findings against S″'s 116 | ChatGPT quota, 2 windows |
 
 ## 4.1 Build notes (2026-10-05)
 

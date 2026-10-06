@@ -771,7 +771,7 @@ test("check-passes repairs the slips of a pass agent and prints what needs a rea
   ].join("\n"));
   // 1 physical line with literal \n between records, an invalid \w escape, a check group as the
   // category, a severity below its check line, and a done line short of the queue's file count.
-  const joined = [finding({ category: "injection" }), finding({ severity: "medium" }), JSON.stringify({ done: true, findings: 2, files: 3 })].join("\\n");
+  const joined = [finding({ category: "injection", check: `.agents/skills/ts-reviewer/references/${check}` }), finding({ severity: "medium" }), JSON.stringify({ done: true, findings: 2, files: 3 })].join("\\n");
   writeFileSync(path.join(dir, "type-safety+boundary-validation.jsonl"), joined + "\n");
   writeFileSync(path.join(dir, "security.jsonl"), `{"category":"Security","severity":"medium","title":"t","file":"src/a.ts","line":2,"fix":"match /\\w+/"}\n{"done":true,"findings":1,"files":2}\n`);
   // A pass that names line 40 of a 12-line file, for a snippet that stands at line 9.

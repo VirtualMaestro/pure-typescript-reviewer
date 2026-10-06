@@ -110,3 +110,13 @@ The design leaves the door open: the files rule is already a column of `pass_gro
   - **An unknown slug stops the run** and lists the valid ones, rather than running a guess.
 - **Runs launched on 2026-10-05:** S″ in `%TEMP%\gt-s2`, Codex in `%TEMP%\gt-cx2`, both at
   game-trends `4ab9ac3`, and the pick smoke in a fresh recall-corpus directory after S″.
+- **Results (RESULTS.md, last section):**
+  - **pick smoke** (`--domains security`): 1 Security pass, 7 lint findings of other domains
+    dropped, a Security-only report, 3/3 Security cases, $0.90 against $2.65 for all domains;
+  - **S″:** both boundary sites High, `dashboard` out of scope, $11.42;
+  - **Codex:** 1 agent per pass, 101 analysis findings outside `dashboard` against 15 before.
+- **Fixes the runs led to:** `b5eaedc` (the split wording), `3269dc7` (the config audit only with
+  Config active; step 35 yields to a reference's rule for an untraced source), `4608c33`
+  (`check-passes.mjs` moves a line to its snippet), and the last commit (a `check` written as a
+  path).
+- **Verification bar of §4:** met on every row. The branch waits for the operator's merge.

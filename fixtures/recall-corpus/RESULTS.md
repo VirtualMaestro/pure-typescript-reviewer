@@ -428,3 +428,43 @@ Opus main agent, 1 Sonnet pass, skill lint approved. Run directory `recall-corpu
   - steps 9 and 11 audited the tsconfig flags with Config inactive;
   - step 35 capped an untraced data flow at Medium, against `security.md`, which reports an
     untraced sink at its listed severity and states the assumption.
+
+### Codex on the patched skill (2026-10-05 to 2026-10-06)
+
+`gpt-6-sol` at `high`, ChatGPT account, skill copy `bb4ea7a`. The run hit the usage limit at 21 of
+34 passes and resumed from `queue.md` after the reset, in the same session.
+
+| | Codex, 1st run (`gt-cx`) | Codex, patched (`gt-cx2`) | S″ (`gt-s2`) |
+|---|---|---|---|
+| Files in scope | 98 | 58 (`dashboard` dropped) | 58 |
+| Analysis passes | 37 | 33 | 23 |
+| Agents | 6 for 37 passes | 35 for 33 passes (2 retries), 1 pass each | 1 per pass |
+| Analysis findings outside `dashboard` | 15 | **101** | 116 |
+| Type Safety and Boundary | 3 | 30 | 25 |
+| Modernization and Code Quality | 4 | 53 | 61 |
+| Skill lint | 129 | failed: `typescript-eslint` not found | 106 |
+| Report | 27 issues, 8 High | 40 issues, 16 High | 66 issues, 19 High |
+| Validator | passed, rows with no sites | passed, first try | passed, second try |
+
+**Reading:**
+- **1 fresh agent per pass is the fix.** Outside `dashboard`, the Codex passes found 15 findings
+  under reuse and 101 with a new agent each, on the same model and effort: 6.7 times as many.
+  The session files confirm 1 task per worker.
+- **The Codex passes now find about what the Sonnet passes find,** 101 against 116. The lint
+  failed in the Codex run, so its passes also read the lint-owned lines; the counts are close,
+  not equal in kind.
+- **Both boundary sites of the large-run proposal are High on Codex too:** `db.ts:77` and
+  `poki-adapter.ts:152`.
+- **Where the 2 reports differ on High,** most entries are the same defect at another line or under
+  another title: `embedded-json.ts:5` against `:16`, the pagination recursion at `:401` against
+  `:394`, 2 `sql<T>` test reads as full entries against a pattern row. Codex alone grades 2 date
+  parsers in `embedded-json.ts` High; S″ alone grades the 2 untyped `JSON.parse` test reads and 3
+  test casts High.
+- **The lint failure is the host.** Codex moved `npm_config_cache` into TMPDIR under its sandbox,
+  and the `npx` install there lacked `typescript-eslint`. The skill took its fallback as designed:
+  `lint-skill` failed, and the async and error group read all 58 files.
+- **`check-passes.mjs` missed 2 lines:** Codex wrote `check` as a path,
+  `.agents/skills/ts-reviewer/references/security.md:49`, and the tool read only a bare file name.
+  It now takes the base name of any path.
+- **The skill names Bash's `head`** at step 20, and Codex on PowerShell used `Select-Object -First
+  200`. It read the intent; no change.
